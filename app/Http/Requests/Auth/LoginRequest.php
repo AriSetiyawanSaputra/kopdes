@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -34,7 +35,7 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
+     * Attempt to authenticate the request's credentials (exclusively for active Admin roles).
      *
      * @throws ValidationException
      */
@@ -48,6 +49,40 @@ class LoginRequest extends FormRequest
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
+        }
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($user->isCashier()) {
+            Auth::guard('web')->logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun Kasir wajib login melalui halaman POS (/pos/login) menggunakan Kartu RFID dan PIN.',
+            ]);
+        }
+
+        if (! $user->is_active || ! $user->isAdmin()) {
+            Auth::guard('web')->logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun Anda sedang dinonaktifkan atau tidak memiliki akses dashboard.',
+            ]);
+        }
+
+        if ($user->branch_id !== null) {
+            $branchActive = (bool) $user->branch()->value('is_active');
+
+            if (! $branchActive) {
+                Auth::guard('web')->logout();
+                RateLimiter::hit($this->throttleKey());
+
+                throw ValidationException::withMessages([
+                    'email' => 'Cabang KOPDES Anda sedang dinonaktifkan.',
+                ]);
+            }
         }
 
         RateLimiter::clear($this->throttleKey());

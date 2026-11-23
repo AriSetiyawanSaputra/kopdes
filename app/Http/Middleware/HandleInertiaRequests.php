@@ -29,10 +29,56 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
+        if ($user) {
+            $user->loadMissing([
+                'province:id,name',
+                'regency:id,name',
+                'branch:id,code,name,village_id,district_id,regency_id,province_id,address,phone,is_active',
+            ]);
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'province_id' => $user->province_id,
+                    'regency_id' => $user->regency_id,
+                    'branch_id' => $user->branch_id,
+                    'is_active' => (bool) $user->is_active,
+                    'province' => $user->province ? [
+                        'id' => $user->province->id,
+                        'name' => $user->province->name,
+                    ] : null,
+                    'regency' => $user->regency ? [
+                        'id' => $user->regency->id,
+                        'name' => $user->regency->name,
+                    ] : null,
+                    'branch' => $user->branch ? [
+                        'id' => $user->branch->id,
+                        'code' => $user->branch->code,
+                        'name' => $user->branch->name,
+                        'village_id' => $user->branch->village_id,
+                        'district_id' => $user->branch->district_id,
+                        'regency_id' => $user->branch->regency_id,
+                        'province_id' => $user->branch->province_id,
+                        'address' => $user->branch->address,
+                        'phone' => $user->branch->phone,
+                        'is_active' => (bool) $user->branch->is_active,
+                    ] : null,
+                ] : null,
+                'pos_locked' => (bool) $request->session()->get('pos_locked', false),
+            ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'warning' => fn () => $request->session()->get('warning'),
+                'info' => fn () => $request->session()->get('info'),
             ],
         ];
     }
