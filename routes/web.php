@@ -3,10 +3,15 @@
 use App\Http\Controllers\Auth\PosAuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\PosController;
+use App\Http\Controllers\PosLookupController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegionController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -26,22 +31,40 @@ Route::get('/pos/login', [PosAuthController::class, 'showLogin'])->name('pos.log
 Route::post('/pos/login', [PosAuthController::class, 'login'])->name('pos.login.store');
 
 Route::middleware(['auth', 'role:kasir'])->group(function () {
-    Route::get('/pos', function () {
-        return Inertia::render('Pos/Index');
-    })->name('pos.index');
+    Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
 
     Route::post('/pos/lock', [PosAuthController::class, 'lock'])->name('pos.lock');
     Route::post('/pos/unlock', [PosAuthController::class, 'unlock'])->name('pos.unlock');
     Route::post('/pos/logout', [PosAuthController::class, 'logout'])->name('pos.logout');
+
+    Route::middleware('pos.unlocked')->group(function () {
+        Route::get('/pos/products/barcode/{barcode}', [PosLookupController::class, 'productByBarcode'])
+            ->name('pos.products.barcode');
+        Route::get('/pos/members/lookup', [PosLookupController::class, 'memberByCard'])
+            ->name('pos.members.lookup');
+
+        Route::post('/pos/checkout', [PosController::class, 'checkout'])
+            ->name('pos.checkout');
+        Route::get('/pos/transactions/pending', [PosController::class, 'pendingTransactions'])
+            ->name('pos.transactions.pending');
+        Route::get('/pos/transactions/today', [PosController::class, 'todayTransactions'])
+            ->name('pos.transactions.today');
+        Route::post('/pos/transactions/{transaction}/check-status', [PosController::class, 'checkStatus'])
+            ->name('pos.transactions.check-status');
+        Route::post('/pos/transactions/{transaction}/cancel', [PosController::class, 'cancel'])
+            ->name('pos.transactions.cancel');
+    });
 });
 
 Route::middleware([
     'auth',
     'role:admin_nasional,admin_provinsi,admin_kabupaten,admin_cabang',
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Laporan Keuangan Berjenjang & Rekap Transaksi Member (SHU)
+    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
+    Route::get('/reports/members', [ReportController::class, 'members'])->name('reports.members');
 
     // Referensi Wilayah Baku (Read-Only Dependent Dropdowns)
     Route::get('/regions/provinces', [RegionController::class, 'provinces'])->name('regions.provinces');
@@ -96,6 +119,12 @@ Route::middleware([
     Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+    // Manajemen Inventori Cabang & Audit Log Pergerakan Stok (Append-Only)
+    Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::post('/inventory/restock', [InventoryController::class, 'restock'])->name('inventory.restock');
+    Route::post('/inventory/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');
+    Route::get('/inventory/movements', [InventoryController::class, 'movements'])->name('inventory.movements');
 });
 
 Route::middleware('auth')->group(function () {
