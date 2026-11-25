@@ -54,6 +54,7 @@ class ProductController extends Controller
             'unit' => $product->unit,
             'cost_price' => (float) $product->cost_price,
             'selling_price' => (float) $product->selling_price,
+            'member_price' => $product->member_price !== null ? (float) $product->member_price : null,
             'is_active' => (bool) $product->is_active,
             'category' => $product->category,
         ]);
@@ -118,6 +119,7 @@ class ProductController extends Controller
                 'unit' => $product->unit,
                 'cost_price' => (float) $product->cost_price,
                 'selling_price' => (float) $product->selling_price,
+                'member_price' => $product->member_price !== null ? (float) $product->member_price : null,
                 'is_active' => (bool) $product->is_active,
             ],
             'categories' => Category::orderBy('name')->get(['id', 'name']),

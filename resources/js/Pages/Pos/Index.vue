@@ -1,10 +1,14 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import CloseShiftModal from '@/Pages/Pos/Partials/CloseShiftModal.vue';
 import MemberLookupModal from '@/Pages/Pos/Partials/MemberLookupModal.vue';
+import OpenShiftModal from '@/Pages/Pos/Partials/OpenShiftModal.vue';
 import PaymentModal from '@/Pages/Pos/Partials/PaymentModal.vue';
 import PendingTransactionsDrawer from '@/Pages/Pos/Partials/PendingTransactionsDrawer.vue';
 import PosLockModal from '@/Pages/Pos/Partials/PosLockModal.vue';
 import ReceiptThermal from '@/Pages/Pos/Partials/ReceiptThermal.vue';
+import ShiftCashMovementModal from '@/Pages/Pos/Partials/ShiftCashMovementModal.vue';
+import ShiftClosingReceipt from '@/Pages/Pos/Partials/ShiftClosingReceipt.vue';
 import { useIdleLock } from '@/Composables/useIdleLock';
 import { generateUuidV4 } from '@/Utils/uuid';
 import { Head, router } from '@inertiajs/vue3';
@@ -17,6 +21,18 @@ const props = defineProps({
     cashier: {
         type: Object,
         required: true,
+    },
+    activeShift: {
+        type: Object,
+        default: null,
+    },
+    pendingTransactionsForShift: {
+        type: Array,
+        default: () => [],
+    },
+    pendingCountForShift: {
+        type: Number,
+        default: 0,
     },
     products: {
         type: Array,
@@ -43,6 +59,8 @@ const props = defineProps({
 const STORAGE_PAPER_WIDTH_KEY = 'kopdes_thermal_paper_width';
 
 const currentCashier = ref({ ...props.cashier });
+const currentShift = ref(props.activeShift ? { ...props.activeShift } : null);
+const shiftPendingTransactions = ref([...props.pendingTransactionsForShift]);
 const catalogProducts = ref(props.products.map((p) => ({ ...p })));
 const cartItems = ref([]);
 const selectedMember = ref(null);
@@ -52,7 +70,7 @@ const barcodeQuery = ref('');
 const catalogSearch = ref('');
 const barcodeInputRef = ref(null);
 
-const activeModal = ref(props.posLocked ? 'lock' : null);
+const activeModal = ref(props.posLocked ? 'lock' : (!props.activeShift ? 'open-shift' : null));
 const isLocked = ref(Boolean(props.posLocked));
 const isScanningBarcode = ref(false);
 const isSubmitting = ref(false);
@@ -64,6 +82,7 @@ const paymentError = ref('');
 const pendingTransactions = ref([...props.initialPendingTransactions]);
 const todayTransactions = ref([...props.initialTodayTransactions]);
 const activeReceiptTransaction = ref(null);
+const activeShiftClosingReceipt = ref(null);
 const paperWidth = ref('58mm');
 
 const { lockPosSession, resetIdleTimer } = useIdleLock({
@@ -94,11 +113,44 @@ const totalItemsCount = computed(() => {
     return cartItems.value.reduce((sum, item) => sum + Number(item.qty || 0), 0);
 });
 
-const grandTotal = computed(() => {
+const isItemMemberPriceApplied = (item) => {
+    return (
+        Boolean(selectedMember.value) &&
+        item.member_price !== null &&
+        item.member_price !== undefined
+    );
+};
+
+const getEffectiveUnitPrice = (item) => {
+    if (isItemMemberPriceApplied(item)) {
+        return Number(item.member_price);
+    }
+
+    return Number(item.selling_price || 0);
+};
+
+const getItemMemberSavings = (item) => {
+    const regular = Number(item.selling_price || 0);
+    const effective = getEffectiveUnitPrice(item);
+    return Math.max(0, (regular - effective) * Number(item.qty || 0));
+};
+
+const regularSubtotal = computed(() => {
     return cartItems.value.reduce(
         (sum, item) => sum + Number(item.selling_price || 0) * Number(item.qty || 0),
         0,
     );
+});
+
+const grandTotal = computed(() => {
+    return cartItems.value.reduce(
+        (sum, item) => sum + getEffectiveUnitPrice(item) * Number(item.qty || 0),
+        0,
+    );
+});
+
+const totalMemberSavings = computed(() => {
+    return Math.max(0, regularSubtotal.value - grandTotal.value);
 });
 
 const formatRupiah = (value) => {
@@ -144,7 +196,8 @@ watch(activeModal, (newModal) => {
 
 /**
  * Ensure idempotency_key (UUID v4) is generated when cart has at least 1 item,
- * preserved across network retries, and cleared only after checkout completes or cart resets (FR-11).
+ * regenerated whenever cart composition/qty or selectedMember changes before checkout (PRD_PHASE2 6.3 #5),
+ * and cleared when cart is empty or checkout completes.
  */
 const ensureIdempotencyKey = () => {
     if (cartItems.value.length > 0 && !idempotencyKey.value) {
@@ -154,8 +207,27 @@ const ensureIdempotencyKey = () => {
     }
 };
 
+const regenerateIdempotencyKey = () => {
+    if (cartItems.value.length > 0) {
+        idempotencyKey.value = generateUuidV4();
+    } else {
+        idempotencyKey.value = null;
+    }
+};
+
+watch(
+    () => selectedMember.value?.id ?? null,
+    () => {
+        regenerateIdempotencyKey();
+    },
+);
+
 const addProductToCart = (productData) => {
     const availableStock = Number(productData.available_stock ?? 0);
+    const parsedMemberPrice =
+        productData.member_price !== null && productData.member_price !== undefined
+            ? Number(productData.member_price)
+            : null;
 
     if (availableStock < 1) {
         showNotification(
@@ -179,6 +251,8 @@ const addProductToCart = (productData) => {
         }
         existing.qty += 1;
         existing.available_stock = availableStock;
+        existing.selling_price = Number(productData.selling_price);
+        existing.member_price = parsedMemberPrice;
     } else {
         cartItems.value.push({
             product_id: productData.id,
@@ -187,14 +261,17 @@ const addProductToCart = (productData) => {
             name: productData.name,
             unit: productData.unit,
             selling_price: Number(productData.selling_price),
+            member_price: parsedMemberPrice,
             available_stock: availableStock,
             qty: 1,
         });
     }
 
-    // Update catalog cache with latest stock info
+    // Update catalog cache with latest stock & pricing info
     const catalogIdx = catalogProducts.value.findIndex((p) => p.id === productData.id);
     if (catalogIdx !== -1) {
+        catalogProducts.value[catalogIdx].selling_price = Number(productData.selling_price);
+        catalogProducts.value[catalogIdx].member_price = parsedMemberPrice;
         catalogProducts.value[catalogIdx].available_stock = availableStock;
         catalogProducts.value[catalogIdx].quantity = Number(
             productData.quantity ?? catalogProducts.value[catalogIdx].quantity,
@@ -204,7 +281,7 @@ const addProductToCart = (productData) => {
         );
     }
 
-    ensureIdempotencyKey();
+    regenerateIdempotencyKey();
     alertBanner.value = null;
     focusBarcodeInputIfIdle();
 };
@@ -258,12 +335,12 @@ const updateItemQty = (item, newQty) => {
         item.qty = parsed;
     }
 
-    ensureIdempotencyKey();
+    regenerateIdempotencyKey();
 };
 
 const removeItemFromCart = (productId) => {
     cartItems.value = cartItems.value.filter((i) => i.product_id !== productId);
-    ensureIdempotencyKey();
+    regenerateIdempotencyKey();
     focusBarcodeInputIfIdle();
 };
 
@@ -297,6 +374,7 @@ const changePaperWidth = (width) => {
 };
 
 const triggerThermalPrint = (transactionData) => {
+    activeShiftClosingReceipt.value = null;
     activeReceiptTransaction.value = transactionData;
     nextTick(() => {
         window.print();
@@ -304,15 +382,30 @@ const triggerThermalPrint = (transactionData) => {
     });
 };
 
+const triggerShiftClosingPrint = (closedShiftData) => {
+    activeReceiptTransaction.value = null;
+    activeShiftClosingReceipt.value = closedShiftData;
+    nextTick(() => {
+        window.print();
+    });
+};
+
 const refreshTransactionsLists = async () => {
     try {
-        const [pendingRes, todayRes] = await Promise.all([
+        const requests = [
             window.axios.get(route('pos.transactions.pending')),
             window.axios.get(route('pos.transactions.today')),
-        ]);
+        ];
+        if (currentShift.value?.id) {
+            requests.push(window.axios.get(route('pos.shifts.summary', currentShift.value.id)));
+        }
+        const [pendingRes, todayRes, shiftRes] = await Promise.all(requests);
 
         pendingTransactions.value = pendingRes.data.transactions || [];
         todayTransactions.value = todayRes.data.transactions || [];
+        if (shiftRes?.data) {
+            shiftPendingTransactions.value = shiftRes.data.pending_transactions_for_shift || [];
+        }
     } catch {
         // Keep existing lists on error
     }
@@ -496,20 +589,55 @@ const handleCancelTransaction = async (tx) => {
     }
 };
 
-const handlePosUnlocked = ({ switchedCashier, cashier, message }) => {
+const handlePosUnlocked = ({
+    switchedCashier,
+    cashier,
+    activeShift,
+    pendingTransactionsForShift,
+    message,
+}) => {
     isLocked.value = false;
-    activeModal.value = null;
     resetIdleTimer();
 
     if (switchedCashier) {
         currentCashier.value = { ...cashier };
+        currentShift.value = activeShift ? { ...activeShift } : null;
+        shiftPendingTransactions.value = [...(pendingTransactionsForShift || [])];
         clearCartAfterSuccess();
+        activeModal.value = currentShift.value ? null : 'open-shift';
         showNotification('warning', message || 'Kasir berganti, keranjang telah direset.');
     } else {
+        if (activeShift !== undefined) {
+            currentShift.value = activeShift ? { ...activeShift } : null;
+            shiftPendingTransactions.value = [...(pendingTransactionsForShift || [])];
+        }
+        activeModal.value = currentShift.value ? null : 'open-shift';
         showNotification('success', message || 'Layar POS berhasil dibuka kembali.');
     }
 
+    if (activeModal.value === null) {
+        focusBarcodeInputIfIdle();
+    }
+};
+
+const handleShiftOpened = ({ shift, pendingTransactions: shiftPending, message }) => {
+    currentShift.value = shift;
+    shiftPendingTransactions.value = shiftPending || [];
+    activeModal.value = null;
+    showNotification('success', message || 'Shift kasir berhasil dibuka.');
     focusBarcodeInputIfIdle();
+};
+
+const handleCashMovementRecorded = ({ shift, message }) => {
+    currentShift.value = shift;
+    showNotification('success', message || 'Mutasi kas laci berhasil dicatat.');
+};
+
+const handleShiftClosed = ({ message }) => {
+    currentShift.value = null;
+    shiftPendingTransactions.value = [];
+    clearCartAfterSuccess();
+    showNotification('success', message || 'Shift kasir berhasil ditutup.');
 };
 
 const handleLogout = () => {
@@ -524,19 +652,25 @@ const handleLogout = () => {
 };
 
 const handleGlobalKeydown = (event) => {
-    if (isLocked.value) {
+    if (isLocked.value || !currentShift.value) {
         return;
     }
 
     if (event.key === 'F2') {
         event.preventDefault();
         activeModal.value = activeModal.value === 'member' ? null : 'member';
+    } else if (event.key === 'F4') {
+        event.preventDefault();
+        activeModal.value = activeModal.value === 'cash-movement' ? null : 'cash-movement';
     } else if (event.key === 'F9') {
         event.preventDefault();
         if (cartItems.value.length > 0) {
             paymentError.value = '';
             activeModal.value = 'payment';
         }
+    } else if (event.key === 'F10') {
+        event.preventDefault();
+        activeModal.value = activeModal.value === 'close-shift' ? null : 'close-shift';
     } else if (event.key === 'F12') {
         event.preventDefault();
         lockPosSession();
@@ -584,8 +718,20 @@ onBeforeUnmount(() => {
                                 ({{ branch.code }})
                             </span>
                         </h1>
-                        <p class="text-xs text-red-200">
-                            Kasir Aktif: <strong class="text-white">{{ currentCashier.name }}</strong>
+                        <p class="flex flex-wrap items-center gap-2 text-xs text-red-200">
+                            <span>Kasir Aktif: <strong class="text-white">{{ currentCashier.name }}</strong></span>
+                            <span
+                                v-if="currentShift"
+                                class="inline-flex items-center rounded bg-emerald-500/20 px-1.5 py-0.5 font-mono text-[11px] font-bold text-emerald-100 ring-1 ring-emerald-400/40"
+                            >
+                                Shift: {{ currentShift.shift_code }}
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex items-center rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-bold text-amber-100 ring-1 ring-amber-300/40"
+                            >
+                                Shift Belum Dibuka
+                            </span>
                         </p>
                     </div>
                 </div>
@@ -620,6 +766,26 @@ onBeforeUnmount(() => {
                             80mm
                         </button>
                     </div>
+
+                    <button
+                        v-if="currentShift"
+                        type="button"
+                        @click.stop="activeModal = 'cash-movement'"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-red-600 bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600"
+                    >
+                        <span>Kas Laci</span>
+                        <kbd class="rounded bg-red-900 px-1.5 py-0.5 font-mono text-[10px]">F4</kbd>
+                    </button>
+
+                    <button
+                        v-if="currentShift"
+                        type="button"
+                        @click.stop="activeModal = 'close-shift'"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-emerald-500 bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600"
+                    >
+                        <span>Tutup Shift</span>
+                        <kbd class="rounded bg-emerald-900 px-1.5 py-0.5 font-mono text-[10px]">F10</kbd>
+                    </button>
 
                     <button
                         type="button"
@@ -792,11 +958,32 @@ onBeforeUnmount(() => {
                                 </div>
                             </div>
 
-                            <div class="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
+                            <div class="mt-2 flex items-end justify-between border-t border-gray-100 pt-2">
                                 <span class="text-[11px] text-gray-500">{{ prod.category_name || '-' }}</span>
-                                <span class="font-mono text-sm font-extrabold text-red-700">
-                                    {{ formatRupiah(prod.selling_price) }}
-                                </span>
+                                <div class="text-right">
+                                    <div
+                                        v-if="selectedMember && prod.member_price !== null && prod.member_price !== undefined"
+                                        class="flex items-center justify-end gap-1.5"
+                                    >
+                                        <span class="font-mono text-[11px] text-gray-400 line-through">
+                                            {{ formatRupiah(prod.selling_price) }}
+                                        </span>
+                                        <span class="font-mono text-sm font-extrabold text-emerald-700">
+                                            {{ formatRupiah(prod.member_price) }}
+                                        </span>
+                                    </div>
+                                    <template v-else>
+                                        <div class="font-mono text-sm font-extrabold text-red-700">
+                                            {{ formatRupiah(prod.selling_price) }}
+                                        </div>
+                                        <div
+                                            v-if="prod.member_price !== null && prod.member_price !== undefined"
+                                            class="font-mono text-[10px] font-semibold text-emerald-700"
+                                        >
+                                            Member: {{ formatRupiah(prod.member_price) }}
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </button>
                     </div>
@@ -900,8 +1087,24 @@ onBeforeUnmount(() => {
                                     <div class="truncate text-sm font-bold text-gray-900">
                                         {{ item.name }}
                                     </div>
-                                    <div class="font-mono text-xs text-gray-500">
-                                        {{ formatRupiah(item.selling_price) }} / {{ item.unit }}
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-xs">
+                                        <template v-if="isItemMemberPriceApplied(item) && Number(item.member_price) < Number(item.selling_price)">
+                                            <span class="text-gray-400 line-through">
+                                                {{ formatRupiah(item.selling_price) }}
+                                            </span>
+                                            <span class="font-bold text-emerald-700">
+                                                {{ formatRupiah(item.member_price) }}
+                                            </span>
+                                            <span class="text-gray-500">/ {{ item.unit }}</span>
+                                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                                                Hemat {{ formatRupiah(getItemMemberSavings(item)) }}
+                                            </span>
+                                        </template>
+                                        <template v-else>
+                                            <span class="text-gray-500">
+                                                {{ formatRupiah(getEffectiveUnitPrice(item)) }} / {{ item.unit }}
+                                            </span>
+                                        </template>
                                         <span class="text-gray-400">(Stok: {{ item.available_stock }})</span>
                                     </div>
                                 </div>
@@ -934,7 +1137,7 @@ onBeforeUnmount(() => {
                                 </div>
 
                                 <div class="w-24 text-right font-mono text-sm font-extrabold text-gray-900">
-                                    {{ formatRupiah(item.selling_price * item.qty) }}
+                                    {{ formatRupiah(getEffectiveUnitPrice(item) * item.qty) }}
                                 </div>
 
                                 <button
@@ -951,6 +1154,24 @@ onBeforeUnmount(() => {
 
                     <!-- Footer Grand Total & Tombol Bayar (F9) -->
                     <div class="mt-4 border-t border-gray-200 pt-4">
+                        <div
+                            v-if="totalMemberSavings > 0"
+                            class="mb-2.5 space-y-1 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs"
+                        >
+                            <div class="flex items-center justify-between text-gray-600">
+                                <span>Subtotal Harga Normal</span>
+                                <span class="font-mono font-semibold">
+                                    {{ formatRupiah(regularSubtotal) }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between font-bold text-emerald-800">
+                                <span>Total Hemat Member</span>
+                                <span class="font-mono">
+                                    -{{ formatRupiah(totalMemberSavings) }}
+                                </span>
+                            </div>
+                        </div>
+
                         <div class="flex items-center justify-between">
                             <span class="text-sm font-bold text-gray-600">GRAND TOTAL</span>
                             <span class="font-mono text-2xl font-black text-red-700">
@@ -1001,6 +1222,8 @@ onBeforeUnmount(() => {
         <PaymentModal
             :show="activeModal === 'payment'"
             :total-amount="grandTotal"
+            :regular-subtotal="regularSubtotal"
+            :member-discount-total="totalMemberSavings"
             :items-count="totalItemsCount"
             :selected-member="selectedMember"
             :is-submitting="isSubmitting"
@@ -1023,6 +1246,39 @@ onBeforeUnmount(() => {
             @reprint="(tx) => triggerThermalPrint(tx)"
         />
 
+        <!-- Modal Wajib Buka Shift Kasir -->
+        <OpenShiftModal
+            :show="!isLocked && (!currentShift || activeModal === 'open-shift') && activeModal !== 'close-shift'"
+            :branch="branch"
+            :cashier="currentCashier"
+            @opened="handleShiftOpened"
+            @logout="handleLogout"
+        />
+
+        <!-- Modal F4: Mutasi Kas Laci (Kas Masuk / Kas Keluar) -->
+        <ShiftCashMovementModal
+            :show="activeModal === 'cash-movement'"
+            :shift="currentShift"
+            @close="activeModal = null"
+            @recorded="handleCashMovementRecorded"
+        />
+
+        <!-- Modal F10: Tutup Shift Blind Count -->
+        <CloseShiftModal
+            :show="activeModal === 'close-shift'"
+            :shift="currentShift"
+            :pending-transactions="shiftPendingTransactions"
+            @close="activeModal = null"
+            @closed="handleShiftClosed"
+            @open-pending-drawer="
+                refreshTransactionsLists();
+                activeModal = 'drawer';
+            "
+            @print-closing="triggerShiftClosingPrint"
+            @open-new-shift="activeModal = 'open-shift'"
+            @logout="handleLogout"
+        />
+
         <!-- Modal F12 / Idle 15m: Kunci Layar POS -->
         <PosLockModal
             :show="isLocked || activeModal === 'lock'"
@@ -1032,9 +1288,16 @@ onBeforeUnmount(() => {
         />
     </div>
 
-    <!-- Komponen Cetak Struk Thermal (@media print 58mm / 80mm) -->
+    <!-- Komponen Cetak Struk Thermal Transaksi (@media print 58mm / 80mm) -->
     <ReceiptThermal
         :transaction="activeReceiptTransaction"
+        :branch="branch"
+        :paper-width="paperWidth"
+    />
+
+    <!-- Komponen Cetak Struk Thermal Tutup Shift (@media print 58mm / 80mm) -->
+    <ShiftClosingReceipt
+        :shift="activeShiftClosingReceipt"
         :branch="branch"
         :paper-width="paperWidth"
     />

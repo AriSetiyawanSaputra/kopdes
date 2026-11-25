@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Branch;
 use App\Models\BranchStock;
+use App\Models\CashierShift;
 use App\Models\Category;
 use App\Models\Member;
 use App\Models\Product;
@@ -37,7 +38,16 @@ class Milestone4PosCashAndMemberTest extends TestCase
 
         $this->branchNgunut = Branch::where('code', 'KOP-3502-001')->firstOrFail();
         $this->branchCekok = Branch::where('code', 'KOP-3502-002')->firstOrFail();
-        $this->cashierNgunut = User::where('card_uid', 'KSR3502001A')->firstOrFail();
+        $this->cashierNgunut = User::where('card_uid', '0008493873')->firstOrFail();
+
+        CashierShift::create([
+            'shift_code' => 'SHF-KOP-3502-001-TEST-001',
+            'branch_id' => $this->branchNgunut->id,
+            'cashier_id' => $this->cashierNgunut->id,
+            'status' => CashierShift::STATUS_OPEN,
+            'opening_cash' => 100000,
+            'opened_at' => now(),
+        ]);
 
         $category = Category::firstOrCreate(
             ['slug' => 'sembako'],
@@ -197,20 +207,20 @@ class Milestone4PosCashAndMemberTest extends TestCase
 
     public function test_cross_branch_member_lookup_and_checkout_records_branch_id_distinct_from_member_home_branch_id(): void
     {
-        // Member Siti Aminah is registered at KOPDES Desa Cekok (branchCekok), shopping at KOPDES Desa Ngunut (branchNgunut)
+        // Member Cintya Bella is registered at KOPDES Desa Cekok (branchCekok), shopping at KOPDES Desa Ngunut (branchNgunut)
         $memberCekok = Member::where('member_code', 'MBR-KOP-3502-002-00001')->firstOrFail();
         $this->assertSame($this->branchCekok->id, $memberCekok->home_branch_id);
         $this->assertNotSame($this->branchNgunut->id, $memberCekok->home_branch_id);
 
         // 1. Lookup member at POS Ngunut using unnormalized RFID UID
         $lookupResponse = $this->actingAs($this->cashierNgunut)
-            ->getJson(route('pos.members.lookup', ['card_uid' => '  mbr-3502:00200001  ']));
+            ->getJson(route('pos.members.lookup', ['card_uid' => '  0009-4341:79  ']));
 
         $lookupResponse->assertOk()
             ->assertExactJson([
                 'id' => $memberCekok->id,
                 'member_code' => 'MBR-KOP-3502-002-00001',
-                'name' => 'Siti Aminah',
+                'name' => 'Cintya Bella',
                 'home_branch_id' => $this->branchCekok->id,
                 'home_branch_name' => 'KOPDES Desa Cekok',
             ]);
@@ -243,7 +253,7 @@ class Milestone4PosCashAndMemberTest extends TestCase
         // 3. Inactive member card is rejected with "Kartu member tidak aktif."
         $memberCekok->update(['status' => 'inactive']);
         $this->actingAs($this->cashierNgunut)
-            ->getJson(route('pos.members.lookup', ['card_uid' => 'MBR350200200001']))
+            ->getJson(route('pos.members.lookup', ['card_uid' => '0009434179']))
             ->assertStatus(422)
             ->assertJson(['message' => 'Kartu member tidak aktif.']);
     }

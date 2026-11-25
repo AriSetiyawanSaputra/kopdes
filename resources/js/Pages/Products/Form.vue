@@ -31,7 +31,33 @@ const form = useForm({
     unit: props.product?.unit ?? 'pcs',
     cost_price: props.product?.cost_price ?? 0,
     selling_price: props.product?.selling_price ?? 0,
+    member_price: props.product?.member_price ?? '',
     is_active: props.product?.is_active ?? true,
+});
+
+const hasMemberPrice = computed(() => {
+    return (
+        form.member_price !== '' &&
+        form.member_price !== null &&
+        form.member_price !== undefined &&
+        !Number.isNaN(Number(form.member_price))
+    );
+});
+
+const isMemberPriceBelowCost = computed(() => {
+    if (!hasMemberPrice.value) {
+        return false;
+    }
+
+    return Number(form.member_price) < Number(form.cost_price || 0);
+});
+
+const isMemberPriceAboveSelling = computed(() => {
+    if (!hasMemberPrice.value) {
+        return false;
+    }
+
+    return Number(form.member_price) > Number(form.selling_price || 0);
 });
 
 const submit = () => {
@@ -160,7 +186,7 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div>
                                 <InputLabel
                                     for="cost_price"
@@ -181,7 +207,7 @@ const submit = () => {
                             <div>
                                 <InputLabel
                                     for="selling_price"
-                                    value="Harga Jual Seragam Nasional (Rp) *"
+                                    value="Harga Jual Normal Nasional (Rp) *"
                                 />
                                 <TextInput
                                     id="selling_price"
@@ -197,6 +223,85 @@ const submit = () => {
                                     :message="form.errors.selling_price"
                                 />
                             </div>
+
+                            <div>
+                                <InputLabel
+                                    for="member_price"
+                                    value="Harga Khusus Member (Rp)"
+                                />
+                                <TextInput
+                                    id="member_price"
+                                    v-model="form.member_price"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="mt-1 block w-full font-mono"
+                                    placeholder="Opsional (kosong = harga normal)"
+                                />
+                                <p class="mt-1 text-xs text-slate-500">
+                                    Berlaku nasional lintas cabang saat kartu member aktif di-tap di POS.
+                                </p>
+                                <InputError
+                                    class="mt-2"
+                                    :message="form.errors.member_price"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Peringatan Non-Blocking bila Harga Member < HPP (FR-P2-09) -->
+                        <div
+                            v-if="isMemberPriceBelowCost"
+                            role="alert"
+                            class="flex items-start gap-3 rounded-lg border border-amber-300 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                            </svg>
+                            <div>
+                                <p class="font-bold">
+                                    Perhatian: Harga Member lebih rendah dari HPP (potensi jual rugi)
+                                </p>
+                                <p class="mt-0.5 text-xs text-amber-800">
+                                    Sistem tetap memperbolehkan penyimpanan bila ini merupakan subsidi/promo khusus anggota koperasi.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="isMemberPriceAboveSelling"
+                            role="alert"
+                            class="flex items-start gap-3 rounded-lg border border-rose-300 border-l-4 border-l-rose-600 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="mt-0.5 h-5 w-5 shrink-0 text-rose-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                            <span>
+                                Harga khusus member tidak boleh melebihi harga jual normal.
+                            </span>
                         </div>
 
                         <div class="flex items-center">

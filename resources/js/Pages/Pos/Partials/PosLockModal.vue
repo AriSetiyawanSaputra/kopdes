@@ -122,6 +122,8 @@ const submitUnlock = async () => {
         emit('unlocked', {
             switchedCashier: Boolean(data.switched_cashier),
             cashier: data.cashier ?? props.currentCashier,
+            activeShift: data.active_shift ?? null,
+            pendingTransactionsForShift: data.pending_transactions_for_shift ?? [],
             message: data.message,
         });
     } catch (error) {

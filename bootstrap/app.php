@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
             'pos.unlocked' => \App\Http\Middleware\EnsurePosUnlocked::class,
+            'pos.shift' => \App\Http\Middleware\EnsureActiveShift::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

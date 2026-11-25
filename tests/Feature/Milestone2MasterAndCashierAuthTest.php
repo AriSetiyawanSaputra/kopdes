@@ -24,14 +24,14 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
 
     public function test_cashier_can_login_with_unnormalized_card_uid_and_6_digit_pin(): void
     {
-        // Seeder creates cashier with card_uid = 'KSR3502001A' and PIN = '123456'
+        // Seeder creates cashier with card_uid = '0008493873' and PIN = '123456'
         $response = $this->post('/pos/login', [
-            'card_uid' => '  ksr-3502:001 a  ',
+            'card_uid' => '  0008-4938:73  ',
             'pin' => '123456',
         ]);
 
         $this->assertAuthenticated();
-        $this->assertSame('KSR3502001A', auth()->user()->card_uid);
+        $this->assertSame('0008493873', auth()->user()->card_uid);
         $this->assertFalse((bool) session('pos_locked'));
         $response->assertRedirect(route('pos.index', absolute: false));
     }
@@ -41,7 +41,7 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
         // 5 failed attempts return validation errors (302 / 422)
         for ($i = 1; $i <= 5; $i++) {
             $res = $this->postJson('/pos/login', [
-                'card_uid' => 'ksr 3502-001a',
+                'card_uid' => '0008 4938-73',
                 'pin' => '000000',
             ]);
             $res->assertStatus(422);
@@ -49,7 +49,7 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
 
         // 6th attempt must be blocked by RateLimiter with HTTP 429 and retry_after seconds
         $sixthResponse = $this->postJson('/pos/login', [
-            'card_uid' => 'KSR3502001A',
+            'card_uid' => '0008493873',
             'pin' => '123456',
         ]);
 
@@ -64,21 +64,21 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
     {
         $adminNgunut = User::where('email', 'admin.ngunut@kopdes.id')->firstOrFail();
 
-        // 1. Try registering a member using cashier's card_uid ('KSR3502001A' formatted with lowercase & spaces)
+        // 1. Try registering a member using cashier's card_uid ('0008493873' formatted with spaces/dashes)
         $memberResponse = $this->actingAs($adminNgunut)->post(route('members.store'), [
             'name' => 'Anggota Kartu Bentrok',
-            'card_uid' => 'ksr-3502-001a',
+            'card_uid' => '0008-4938-73',
             'phone' => '081299998888',
         ]);
 
         $memberResponse->assertSessionHasErrors('card_uid');
         $this->assertDatabaseMissing('members', ['name' => 'Anggota Kartu Bentrok']);
 
-        // 2. Try registering a cashier using member Budi Santoso's card_uid ('MBR350200100001')
+        // 2. Try registering a cashier using member Ari Setiyawan's card_uid ('0009329774')
         $cashierResponse = $this->actingAs($adminNgunut)->post(route('users.store'), [
             'name' => 'Kasir Kartu Bentrok',
             'role' => User::ROLE_KASIR,
-            'card_uid' => 'mbr 3502:00100001',
+            'card_uid' => ' 0009-3297 74 ',
             'pin' => '654321',
         ]);
 
@@ -100,7 +100,7 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
 
         // Cashier from KOPDES Desa Ngunut tries to login
         $response = $this->post('/pos/login', [
-            'card_uid' => 'KSR3502001A',
+            'card_uid' => '0008493873',
             'pin' => '123456',
         ]);
 
@@ -212,7 +212,7 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
 
     public function test_pos_lock_and_unlock_workflow(): void
     {
-        $cashier1 = User::where('card_uid', 'KSR3502001A')->firstOrFail();
+        $cashier1 = User::where('card_uid', '0008493873')->firstOrFail();
 
         $this->actingAs($cashier1)
             ->postJson(route('pos.lock'))
@@ -223,7 +223,7 @@ class Milestone2MasterAndCashierAuthTest extends TestCase
 
         $this->actingAs($cashier1)
             ->postJson(route('pos.unlock'), [
-                'card_uid' => 'ksr 3502 001a',
+                'card_uid' => '0008 4938 73',
                 'pin' => '123456',
             ])
             ->assertOk()

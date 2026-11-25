@@ -2,9 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { normalizeCardUid } from '@/Utils/normalizeCardUid';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 
@@ -122,7 +120,6 @@ const submit = async () => {
             return;
         }
     } catch {
-        // Fallback to standard Inertia form post
         form.post(route('pos.login.store'), {
             onFinish: () => form.reset('pin'),
         });
@@ -144,23 +141,43 @@ onBeforeUnmount(() => {
     <GuestLayout>
         <Head title="Login Kasir POS — RFID & PIN" />
 
-        <div class="mb-6 border-b border-gray-200 pb-4 text-center">
-            <span
-                class="inline-flex items-center rounded-full bg-red-100 px-3 py-0.5 text-xs font-bold text-red-800"
+        <!-- Dual-Mode Auth Switcher -->
+        <div class="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+            <Link
+                :href="route('login')"
+                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
             >
-                TERMINAL POS KASIR
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Admin Dashboard
+            </Link>
+
+            <span
+                class="flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-kopdes-700 shadow-sm ring-1 ring-slate-200/80"
+                aria-current="page"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                Kasir POS (RFID)
             </span>
-            <h1 class="mt-2 text-xl font-extrabold text-gray-900">
-                KOPDES Merah Putih
+        </div>
+
+        <!-- Heading -->
+        <div class="mb-5">
+            <h1 class="text-xl font-extrabold tracking-tight text-slate-900">
+                Terminal Kasir POS
             </h1>
-            <p class="mt-1 text-xs text-gray-500">
-                Tempelkan Kartu RFID Kasir pada USB Reader &amp; Masukkan PIN 6 Digit
+            <p class="mt-1 text-xs leading-relaxed text-slate-600">
+                Tempelkan Kartu RFID Kasir pada USB Reader lalu masukkan PIN 6 digit angka.
             </p>
         </div>
 
         <div
             v-if="status"
-            class="mb-4 rounded-md bg-green-50 p-3 text-sm font-medium text-green-700"
+            role="status"
+            class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-semibold text-emerald-800"
         >
             {{ status }}
         </div>
@@ -168,48 +185,57 @@ onBeforeUnmount(() => {
         <!-- Banner Blokir Sementara RateLimiter (HTTP 429) -->
         <div
             v-if="isLockedOut"
-            class="mb-5 rounded-lg border border-red-300 bg-red-50 p-4 text-center"
+            role="alert"
+            class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-center"
         >
-            <div class="text-sm font-bold text-red-800">
-                Akses Kartu Kasir Diblokir Sementara (5x Salah PIN)
+            <div class="text-xs font-bold uppercase tracking-wider text-rose-800">
+                Akses Kartu Diblokir Sementara (5x Salah PIN)
             </div>
-            <p class="mt-1 text-xs text-red-700">
+            <p class="mt-1 text-xs text-rose-700">
                 {{ lockoutMessage }}
             </p>
-            <div class="mt-2 inline-block rounded bg-red-700 px-3 py-1 font-mono text-sm font-extrabold text-white">
-                Sisa Waktu Tunggu: {{ retryAfterSeconds }} detik
+            <div class="kopdes-num mt-2.5 inline-block rounded-md bg-kopdes-700 px-3 py-1 text-xs font-extrabold text-white">
+                Tunggu {{ retryAfterSeconds }} detik
             </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-5">
+        <form @submit.prevent="submit" class="space-y-4">
             <div>
-                <InputLabel
-                    for="card_uid"
-                    value="1. Tap Kartu RFID Kasir (USB Reader)"
-                />
-                <input
-                    id="card_uid"
-                    ref="cardInputRef"
-                    v-model="form.card_uid"
-                    type="text"
-                    autocomplete="off"
-                    :disabled="isLockedOut || form.processing"
-                    @keydown.enter.prevent="onCardEnter"
-                    class="mt-1 block w-full rounded-md border-gray-300 font-mono text-base font-bold uppercase tracking-wider text-gray-900 shadow-sm focus:border-red-600 focus:ring-red-600 disabled:bg-gray-100"
-                    placeholder="Tempelkan kartu kasir..."
-                    required
-                />
-                <div class="mt-1 flex items-center justify-between text-xs text-gray-500">
+                <label for="card_uid" class="block text-xs font-semibold text-slate-700">
+                    1. Tap Kartu RFID Kasir (USB Reader)
+                </label>
+                <div class="relative mt-1.5">
+                    <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                    </span>
+                    <input
+                        id="card_uid"
+                        ref="cardInputRef"
+                        v-model="form.card_uid"
+                        type="text"
+                        autocomplete="off"
+                        :disabled="isLockedOut || form.processing"
+                        @keydown.enter.prevent="onCardEnter"
+                        class="kopdes-input kopdes-num pl-9 text-base font-bold uppercase tracking-wider disabled:bg-slate-100"
+                        placeholder="Tempelkan kartu kasir..."
+                        required
+                    />
+                </div>
+                <div class="mt-1.5 flex items-center justify-between text-xs text-slate-500">
                     <span>UID Ternormalisasi:</span>
-                    <span class="font-mono font-bold text-gray-800">
+                    <span class="kopdes-num font-bold text-slate-800">
                         {{ normalizedUidPreview || '-' }}
                     </span>
                 </div>
-                <InputError class="mt-2" :message="form.errors.card_uid" />
+                <InputError class="mt-1.5" :message="form.errors.card_uid" />
             </div>
 
             <div>
-                <InputLabel for="pin" value="2. PIN Kasir (6 Digit Angka)" />
+                <label for="pin" class="block text-xs font-semibold text-slate-700">
+                    2. PIN Kasir (6 Digit Angka)
+                </label>
                 <input
                     id="pin"
                     ref="pinInputRef"
@@ -220,17 +246,16 @@ onBeforeUnmount(() => {
                     pattern="\d{6}"
                     autocomplete="current-password"
                     :disabled="isLockedOut || form.processing"
-                    class="mt-1 block w-full rounded-md border-gray-300 text-center font-mono text-xl font-bold tracking-[0.5em] text-gray-900 shadow-sm focus:border-red-600 focus:ring-red-600 disabled:bg-gray-100"
+                    class="kopdes-input kopdes-num mt-1.5 text-center text-xl font-bold tracking-[0.5em] disabled:bg-slate-100"
                     placeholder="••••••"
                     required
                 />
-                <InputError class="mt-2" :message="form.errors.pin" />
+                <InputError class="mt-1.5" :message="form.errors.pin" />
             </div>
 
             <div class="pt-2">
                 <PrimaryButton
-                    class="w-full justify-center bg-red-700 py-3 text-sm font-bold hover:bg-red-800"
-                    :class="{ 'opacity-25': form.processing || isLockedOut }"
+                    class="w-full py-2.5 text-sm font-bold"
                     :disabled="form.processing || isLockedOut"
                 >
                     {{
@@ -241,15 +266,5 @@ onBeforeUnmount(() => {
                 </PrimaryButton>
             </div>
         </form>
-
-        <div class="mt-6 border-t border-gray-200 pt-4 text-center text-xs text-gray-500">
-            Pengurus / Admin KOPDES?
-            <Link
-                :href="route('login')"
-                class="font-semibold text-red-700 underline hover:text-red-800"
-            >
-                Login Dashboard Admin (/login)
-            </Link>
-        </div>
     </GuestLayout>
 </template>

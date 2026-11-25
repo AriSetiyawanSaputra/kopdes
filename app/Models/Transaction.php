@@ -17,13 +17,17 @@ class Transaction extends Model
         'idempotency_key',
         'branch_id',
         'cashier_id',
+        'cashier_shift_id',
         'member_id',
         'member_home_branch_id',
+        'regular_subtotal',
+        'member_discount_total',
         'subtotal',
         'total_amount',
         'total_cogs',
         'payment_method',
         'payment_status',
+        'return_status',
         'cash_received',
         'change_amount',
         'snap_token',
@@ -35,6 +39,8 @@ class Transaction extends Model
     protected function casts(): array
     {
         return [
+            'regular_subtotal' => 'decimal:2',
+            'member_discount_total' => 'decimal:2',
             'subtotal' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'total_cogs' => 'decimal:2',
@@ -55,6 +61,11 @@ class Transaction extends Model
         return $this->belongsTo(User::class, 'cashier_id');
     }
 
+    public function cashierShift(): BelongsTo
+    {
+        return $this->belongsTo(CashierShift::class, 'cashier_shift_id');
+    }
+
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class, 'member_id');
@@ -73,5 +84,10 @@ class Transaction extends Model
     public function paymentLogs(): HasMany
     {
         return $this->hasMany(PaymentLog::class, 'transaction_id');
+    }
+
+    public function returns(): HasMany
+    {
+        return $this->hasMany(TransactionReturn::class, 'transaction_id');
     }
 }

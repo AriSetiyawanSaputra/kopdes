@@ -13,6 +13,14 @@ const props = defineProps({
         type: Number,
         required: true,
     },
+    regularSubtotal: {
+        type: Number,
+        default: 0,
+    },
+    memberDiscountTotal: {
+        type: Number,
+        default: 0,
+    },
     itemsCount: {
         type: Number,
         default: 0,
@@ -154,6 +162,12 @@ const handleClose = () => {
                     <div class="text-xs text-gray-500">Total Tagihan</div>
                     <div class="font-mono text-xl font-extrabold text-red-700">
                         {{ formatRupiah(totalAmount) }}
+                    </div>
+                    <div
+                        v-if="memberDiscountTotal > 0"
+                        class="mt-0.5 font-mono text-[11px] font-bold text-emerald-700"
+                    >
+                        Total Hemat Member: {{ formatRupiah(memberDiscountTotal) }}
                     </div>
                 </div>
             </div>

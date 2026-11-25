@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Branch;
 use App\Models\BranchStock;
+use App\Models\CashierShift;
 use App\Models\Category;
 use App\Models\PaymentLog;
 use App\Models\Product;
@@ -42,7 +43,16 @@ class Milestone4MidtransAndSchedulerTest extends TestCase
         ]);
 
         $this->branchNgunut = Branch::where('code', 'KOP-3502-001')->firstOrFail();
-        $this->cashierNgunut = User::where('card_uid', 'KSR3502001A')->firstOrFail();
+        $this->cashierNgunut = User::where('card_uid', '0008493873')->firstOrFail();
+
+        CashierShift::create([
+            'shift_code' => 'SHF-KOP-3502-001-MID-001',
+            'branch_id' => $this->branchNgunut->id,
+            'cashier_id' => $this->cashierNgunut->id,
+            'status' => CashierShift::STATUS_OPEN,
+            'opening_cash' => 100000,
+            'opened_at' => now(),
+        ]);
 
         $category = Category::firstOrCreate(
             ['slug' => 'sembako'],

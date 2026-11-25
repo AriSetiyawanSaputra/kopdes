@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CheckoutRequest;
+use App\Http\Resources\CashierShiftPosResource;
 use App\Models\BranchStock;
 use App\Models\Product;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
+use App\Services\CashierShiftService;
 use App\Services\CheckoutService;
 use App\Services\MidtransReconciliationService;
 use App\Services\MidtransService;
@@ -22,6 +24,7 @@ class PosController extends Controller
         private readonly CheckoutService $checkoutService,
         private readonly MidtransService $midtransService,
         private readonly MidtransReconciliationService $reconciliationService,
+        private readonly CashierShiftService $shiftService,
     ) {}
 
     /**
@@ -75,6 +78,7 @@ class PosController extends Controller
                     'name' => $product->name,
                     'unit' => $product->unit,
                     'selling_price' => (float) $product->selling_price,
+                    'member_price' => $product->member_price !== null ? (float) $product->member_price : null,
                     'quantity' => $quantity,
                     'reserved_qty' => $reservedQty,
                     'available_stock' => $availableStock,
@@ -96,6 +100,11 @@ class PosController extends Controller
             ->get()
             ->map(fn (Transaction $tx) => $this->formatTransactionForPos($tx));
 
+        $activeShift = $this->shiftService->getActiveShiftForCashier($cashier);
+        $pendingTransactionsForShift = $activeShift
+            ? $this->shiftService->getPendingTransactionsForShift($activeShift)
+            : [];
+
         return Inertia::render('Pos/Index', [
             'branch' => [
                 'id' => $branch->id,
@@ -114,6 +123,11 @@ class PosController extends Controller
                 'card_uid' => $cashier->card_uid,
                 'branch_id' => $cashier->branch_id,
             ],
+            'activeShift' => $activeShift
+                ? (new CashierShiftPosResource($activeShift))->resolve($request)
+                : null,
+            'pendingTransactionsForShift' => $pendingTransactionsForShift,
+            'pendingCountForShift' => count($pendingTransactionsForShift),
             'products' => $products,
             'initialPendingTransactions' => $pendingTransactions,
             'initialTodayTransactions' => $todayTransactions,
@@ -316,8 +330,11 @@ class PosController extends Controller
             'idempotency_key' => $transaction->idempotency_key,
             'branch_id' => $transaction->branch_id,
             'cashier_id' => $transaction->cashier_id,
+            'cashier_shift_id' => $transaction->cashier_shift_id,
             'member_id' => $transaction->member_id,
             'member_home_branch_id' => $transaction->member_home_branch_id,
+            'regular_subtotal' => (float) $transaction->regular_subtotal,
+            'member_discount_total' => (float) $transaction->member_discount_total,
             'subtotal' => (float) $transaction->subtotal,
             'total_amount' => (float) $transaction->total_amount,
             'total_cogs' => (float) $transaction->total_cogs,
@@ -356,7 +373,10 @@ class PosController extends Controller
                 'barcode_snapshot' => $item->barcode_snapshot,
                 'unit_snapshot' => $item->unit_snapshot,
                 'qty' => (int) $item->qty,
+                'regular_price_snapshot' => (float) $item->regular_price_snapshot,
                 'unit_price_snapshot' => (float) $item->unit_price_snapshot,
+                'member_discount_snapshot' => (float) $item->member_discount_snapshot,
+                'is_member_price_applied' => (bool) $item->is_member_price_applied,
                 'cost_price_snapshot' => (float) $item->cost_price_snapshot,
                 'subtotal' => (float) $item->subtotal,
                 'subtotal_cogs' => (float) $item->subtotal_cogs,

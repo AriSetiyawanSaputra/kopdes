@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CashierLoginRequest;
 use App\Http\Requests\PosUnlockRequest;
+use App\Http\Resources\CashierShiftPosResource;
 use App\Models\User;
+use App\Services\CashierShiftService;
 use App\Support\CardUidNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +24,10 @@ class PosAuthController extends Controller
     private const MAX_PIN_ATTEMPTS = 5;
 
     private const DECAY_SECONDS = 900;
+
+    public function __construct(
+        private readonly CashierShiftService $shiftService,
+    ) {}
 
     /**
      * Render the Cashier RFID + 6-Digit PIN Login Screen (/pos/login).
@@ -178,6 +184,11 @@ class PosAuthController extends Controller
 
         $request->session()->put('pos_locked', false);
 
+        $activeShift = $this->shiftService->getActiveShiftForCashier($targetCashier);
+        $pendingForShift = $activeShift
+            ? $this->shiftService->getPendingTransactionsForShift($activeShift)
+            : [];
+
         if ($request->expectsJson()) {
             return response()->json([
                 'pos_locked' => false,
@@ -185,8 +196,13 @@ class PosAuthController extends Controller
                 'cashier' => [
                     'id' => $targetCashier->id,
                     'name' => $targetCashier->name,
+                    'card_uid' => $targetCashier->card_uid,
                     'branch_id' => $targetCashier->branch_id,
                 ],
+                'active_shift' => $activeShift
+                    ? (new CashierShiftPosResource($activeShift))->resolve($request)
+                    : null,
+                'pending_transactions_for_shift' => $pendingForShift,
                 'message' => $switchedCashier
                     ? "Layar POS dibuka oleh {$targetCashier->name}. Keranjang direset untuk kasir baru."
                     : 'Layar POS berhasil dibuka kembali.',

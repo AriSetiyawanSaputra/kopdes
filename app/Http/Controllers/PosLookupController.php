@@ -56,6 +56,7 @@ class PosLookupController extends Controller
             'name' => $product->name,
             'unit' => $product->unit,
             'selling_price' => (float) $product->selling_price,
+            'member_price' => $product->member_price !== null ? (float) $product->member_price : null,
             'quantity' => $quantity,
             'reserved_qty' => $reservedQty,
             'available_stock' => $availableStock,

@@ -199,10 +199,13 @@ const deleteProduct = (product) => {
                                         Satuan
                                     </th>
                                     <th class="px-4 py-3 text-right font-semibold text-gray-700">
-                                        HPP (`cost_price`)
+                                        HPP
                                     </th>
                                     <th class="px-4 py-3 text-right font-semibold text-gray-700">
-                                        Harga Jual (`selling_price`)
+                                        Harga Normal
+                                    </th>
+                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                        Harga Member
                                     </th>
                                     <th class="px-4 py-3 text-center font-semibold text-gray-700">
                                         Status
@@ -240,6 +243,15 @@ const deleteProduct = (product) => {
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right font-mono font-bold text-gray-900">
                                         {{ formatRupiah(product.selling_price) }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono">
+                                        <span
+                                            v-if="product.member_price !== null && product.member_price !== undefined"
+                                            class="font-bold text-emerald-700"
+                                        >
+                                            {{ formatRupiah(product.member_price) }}
+                                        </span>
+                                        <span v-else class="text-gray-400">-</span>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-center">
                                         <span
@@ -284,7 +296,7 @@ const deleteProduct = (product) => {
                                 </tr>
                                 <tr v-if="products.length === 0">
                                     <td
-                                        colspan="8"
+                                        colspan="9"
                                         class="px-4 py-8 text-center text-sm text-gray-500"
                                     >
                                         Tidak ada produk dalam katalog.

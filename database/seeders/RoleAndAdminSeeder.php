@@ -123,30 +123,28 @@ class RoleAndAdminSeeder extends Seeder
         );
 
         User::updateOrCreate(
-            ['card_uid' => CardUidNormalizer::normalize('KSR3502001A')],
+            ['name' => 'Kasir Ngunut 1', 'role' => User::ROLE_KASIR],
             [
-                'name' => 'Kasir Ngunut 1',
                 'email' => null,
                 'password' => null,
-                'role' => User::ROLE_KASIR,
                 'province_id' => '35',
                 'regency_id' => '3502',
                 'branch_id' => $branchNgunut->id,
+                'card_uid' => CardUidNormalizer::normalize('0008493873'),
                 'pin_hash' => $defaultPinHash,
                 'is_active' => true,
             ]
         );
 
         User::updateOrCreate(
-            ['card_uid' => CardUidNormalizer::normalize('KSR3502002A')],
+            ['name' => 'Kasir Cekok 1', 'role' => User::ROLE_KASIR],
             [
-                'name' => 'Kasir Cekok 1',
                 'email' => null,
                 'password' => null,
-                'role' => User::ROLE_KASIR,
                 'province_id' => '35',
                 'regency_id' => '3502',
                 'branch_id' => $branchCekok->id,
+                'card_uid' => CardUidNormalizer::normalize('0008305215'),
                 'pin_hash' => $defaultPinHash,
                 'is_active' => true,
             ]
@@ -156,8 +154,8 @@ class RoleAndAdminSeeder extends Seeder
             ['member_code' => 'MBR-KOP-3502-001-00001'],
             [
                 'home_branch_id' => $branchNgunut->id,
-                'card_uid' => CardUidNormalizer::normalize('MBR350200100001'),
-                'name' => 'Budi Santoso',
+                'card_uid' => CardUidNormalizer::normalize('0009329774'),
+                'name' => 'Ari Setiyawan',
                 'phone' => '081234567890',
                 'nik' => '3502090101900001',
                 'status' => 'active',
@@ -169,8 +167,8 @@ class RoleAndAdminSeeder extends Seeder
             ['member_code' => 'MBR-KOP-3502-002-00001'],
             [
                 'home_branch_id' => $branchCekok->id,
-                'card_uid' => CardUidNormalizer::normalize('MBR350200200001'),
-                'name' => 'Siti Aminah',
+                'card_uid' => CardUidNormalizer::normalize('0009434179'),
+                'name' => 'Cintya Bella',
                 'phone' => '081234567891',
                 'nik' => '3502090202920002',
                 'status' => 'active',

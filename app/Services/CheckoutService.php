@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Branch;
 use App\Models\BranchStock;
+use App\Models\CashierShift;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockMovement;
@@ -87,6 +88,39 @@ class CheckoutService
                     return $this->validateExistingIdempotentTransaction($existingInTx, $branch->id, $cashier->id);
                 }
 
+                // Pastikan kasir memiliki shift 'open' aktif pada cabang ini (FR-P2-01 & Task 7.7)
+                $activeShift = CashierShift::query()
+                    ->where('cashier_id', $cashier->id)
+                    ->where('branch_id', $branch->id)
+                    ->where('status', CashierShift::STATUS_OPEN)
+                    ->first();
+
+                if (! $activeShift) {
+                    throw ValidationException::withMessages([
+                        'shift' => 'Anda belum membuka shift kasir. Silakan buka shift dengan mengisi modal awal laci terlebih dahulu.',
+                    ]);
+                }
+
+                // Resolve active member & snapshot member_home_branch_id BEFORE pricing items (FR-P2-10, portable lintas cabang)
+                $memberId = ! empty($data['member_id']) ? (int) $data['member_id'] : null;
+                $memberHomeBranchId = null;
+                $hasActiveMember = false;
+
+                if ($memberId !== null) {
+                    $member = Member::where('id', $memberId)
+                        ->where('status', 'active')
+                        ->first();
+
+                    if (! $member) {
+                        throw ValidationException::withMessages([
+                            'member_id' => 'Kartu member tidak ditemukan atau sedang tidak aktif.',
+                        ]);
+                    }
+
+                    $memberHomeBranchId = $member->home_branch_id;
+                    $hasActiveMember = true;
+                }
+
                 // Lock branch_stocks ordered by product_id ASC to prevent deadlocks (PRD 6.1 & AGENTS 3.2)
                 $stocks = BranchStock::where('branch_id', $branch->id)
                     ->whereIn('product_id', $sortedProductIds)
@@ -101,6 +135,8 @@ class CheckoutService
                     ->keyBy('id');
 
                 $preparedItems = [];
+                $regularSubtotal = 0.0;
+                $memberDiscountTotal = 0.0;
                 $subtotal = 0.0;
                 $totalCogs = 0.0;
 
@@ -126,11 +162,20 @@ class CheckoutService
                         ]);
                     }
 
-                    $unitPrice = round((float) $product->selling_price, 2);
+                    $regularPrice = round((float) $product->selling_price, 2);
+                    $isMemberPriceApplied = $hasActiveMember && $product->member_price !== null;
+                    $unitPrice = $isMemberPriceApplied
+                        ? round((float) $product->member_price, 2)
+                        : $regularPrice;
                     $costPrice = round((float) $product->cost_price, 2);
+
+                    $itemRegularSubtotal = round($regularPrice * $qty, 2);
                     $itemSubtotal = round($unitPrice * $qty, 2);
+                    $itemMemberDiscount = round(max(0.0, ($regularPrice - $unitPrice) * $qty), 2);
                     $itemSubtotalCogs = round($costPrice * $qty, 2);
 
+                    $regularSubtotal = round($regularSubtotal + $itemRegularSubtotal, 2);
+                    $memberDiscountTotal = round($memberDiscountTotal + $itemMemberDiscount, 2);
                     $subtotal = round($subtotal + $itemSubtotal, 2);
                     $totalCogs = round($totalCogs + $itemSubtotalCogs, 2);
 
@@ -141,7 +186,10 @@ class CheckoutService
                         'barcode_snapshot' => $product->barcode,
                         'unit_snapshot' => $product->unit,
                         'qty' => $qty,
+                        'regular_price_snapshot' => $regularPrice,
                         'unit_price_snapshot' => $unitPrice,
+                        'member_discount_snapshot' => $itemMemberDiscount,
+                        'is_member_price_applied' => $isMemberPriceApplied,
                         'cost_price_snapshot' => $costPrice,
                         'subtotal' => $itemSubtotal,
                         'subtotal_cogs' => $itemSubtotalCogs,
@@ -149,24 +197,6 @@ class CheckoutService
                 }
 
                 $totalAmount = $subtotal;
-
-                // Resolve member & snapshot member_home_branch_id (PRD 5.3)
-                $memberId = ! empty($data['member_id']) ? (int) $data['member_id'] : null;
-                $memberHomeBranchId = null;
-
-                if ($memberId !== null) {
-                    $member = Member::where('id', $memberId)
-                        ->where('status', 'active')
-                        ->first();
-
-                    if (! $member) {
-                        throw ValidationException::withMessages([
-                            'member_id' => 'Kartu member tidak ditemukan atau sedang tidak aktif.',
-                        ]);
-                    }
-
-                    $memberHomeBranchId = $member->home_branch_id;
-                }
 
                 $isCash = $paymentMethod === 'cash';
                 $cashReceived = null;
@@ -191,8 +221,11 @@ class CheckoutService
                     'idempotency_key' => $idempotencyKey,
                     'branch_id' => $branch->id,
                     'cashier_id' => $cashier->id,
+                    'cashier_shift_id' => $activeShift->id,
                     'member_id' => $memberId,
                     'member_home_branch_id' => $memberHomeBranchId,
+                    'regular_subtotal' => $regularSubtotal,
+                    'member_discount_total' => $memberDiscountTotal,
                     'subtotal' => $subtotal,
                     'total_amount' => $totalAmount,
                     'total_cogs' => $totalCogs,
@@ -214,7 +247,10 @@ class CheckoutService
                         'barcode_snapshot' => $prepared['barcode_snapshot'],
                         'unit_snapshot' => $prepared['unit_snapshot'],
                         'qty' => $prepared['qty'],
+                        'regular_price_snapshot' => $prepared['regular_price_snapshot'],
                         'unit_price_snapshot' => $prepared['unit_price_snapshot'],
+                        'member_discount_snapshot' => $prepared['member_discount_snapshot'],
+                        'is_member_price_applied' => $prepared['is_member_price_applied'],
                         'cost_price_snapshot' => $prepared['cost_price_snapshot'],
                         'subtotal' => $prepared['subtotal'],
                         'subtotal_cogs' => $prepared['subtotal_cogs'],

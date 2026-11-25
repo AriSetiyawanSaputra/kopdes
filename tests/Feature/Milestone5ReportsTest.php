@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Branch;
 use App\Models\BranchStock;
+use App\Models\CashierShift;
 use App\Models\Category;
 use App\Models\Member;
 use App\Models\Product;
@@ -53,8 +54,26 @@ class Milestone5ReportsTest extends TestCase
         $this->adminNgunut = User::where('email', 'admin.ngunut@kopdes.id')->firstOrFail();
         $this->adminCekok = User::where('email', 'admin.cekok@kopdes.id')->firstOrFail();
 
-        $this->cashierNgunut = User::where('card_uid', 'KSR3502001A')->firstOrFail();
-        $this->cashierCekok = User::where('card_uid', 'KSR3502002A')->firstOrFail();
+        $this->cashierNgunut = User::where('card_uid', '0008493873')->firstOrFail();
+        $this->cashierCekok = User::where('card_uid', '0008305215')->firstOrFail();
+
+        CashierShift::create([
+            'shift_code' => 'SHF-KOP-3502-001-RPT-001',
+            'branch_id' => $this->branchNgunut->id,
+            'cashier_id' => $this->cashierNgunut->id,
+            'status' => CashierShift::STATUS_OPEN,
+            'opening_cash' => 100000,
+            'opened_at' => now(),
+        ]);
+
+        CashierShift::create([
+            'shift_code' => 'SHF-KOP-3502-002-RPT-001',
+            'branch_id' => $this->branchCekok->id,
+            'cashier_id' => $this->cashierCekok->id,
+            'status' => CashierShift::STATUS_OPEN,
+            'opening_cash' => 100000,
+            'opened_at' => now(),
+        ]);
 
         $category = Category::firstOrCreate(
             ['slug' => 'sembako'],
@@ -323,5 +342,81 @@ class Milestone5ReportsTest extends TestCase
                 ->get(route($routeName, ['branch_id' => $branchWonogiri->id]))
                 ->assertOk();
         }
+    }
+
+    public function test_sales_and_member_reports_can_be_exported_as_pdf_and_excel_with_anti_idor_protection(): void
+    {
+        $memberCekok = Member::where('member_code', 'MBR-KOP-3502-002-00001')->firstOrFail();
+
+        // Create a paid transaction at Ngunut for Cekok's member
+        $this->actingAs($this->cashierNgunut)
+            ->postJson(route('pos.checkout'), [
+                'idempotency_key' => (string) Str::uuid(),
+                'payment_method' => 'cash',
+                'member_id' => $memberCekok->id,
+                'cash_received' => 150000,
+                'items' => [
+                    ['product_id' => $this->product->id, 'qty' => 2],
+                ],
+            ])
+            ->assertOk();
+
+        // 1. Export Sales PDF
+        $salesPdf = $this->actingAs($this->adminNasional)
+            ->get(route('reports.sales.export', ['format' => 'pdf']));
+        $salesPdf->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $salesPdf->getContent());
+
+        // 2. Export Sales Excel (.xlsx) & verify 2 sheets readable by PhpSpreadsheet
+        $salesExcel = $this->actingAs($this->adminNasional)
+            ->get(route('reports.sales.export', ['format' => 'excel']));
+        $salesExcel->assertOk()
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $salesBinary = $salesExcel->streamedContent();
+        $this->assertStringStartsWith('PK', $salesBinary);
+
+        $tmpSales = tempnam(sys_get_temp_dir(), 'kopdes_sales_').'.xlsx';
+        file_put_contents($tmpSales, $salesBinary);
+        $loadedSales = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmpSales);
+        $this->assertSame(['Ringkasan per Cabang', 'Rincian Transaksi'], $loadedSales->getSheetNames());
+        @unlink($tmpSales);
+
+        // 3. Export Members PDF
+        $membersPdf = $this->actingAs($this->adminCekok)
+            ->get(route('reports.members.export', ['format' => 'pdf']));
+        $membersPdf->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $membersPdf->getContent());
+
+        // 4. Export Members Excel (.xlsx) & verify worksheet readable by PhpSpreadsheet
+        $membersExcel = $this->actingAs($this->adminCekok)
+            ->get(route('reports.members.export', ['format' => 'excel']));
+        $membersExcel->assertOk()
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $membersBinary = $membersExcel->streamedContent();
+        $this->assertStringStartsWith('PK', $membersBinary);
+
+        $tmpMembers = tempnam(sys_get_temp_dir(), 'kopdes_members_').'.xlsx';
+        file_put_contents($tmpMembers, $membersBinary);
+        $loadedMembers = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmpMembers);
+        $this->assertSame(['Rekap Member (SHU)'], $loadedMembers->getSheetNames());
+        @unlink($tmpMembers);
+
+        // 5. Anti-IDOR on export endpoints: Admin Cabang Ngunut requesting Cabang Cekok export gets HTTP 403
+        $this->actingAs($this->adminNgunut)
+            ->get(route('reports.sales.export', ['format' => 'pdf', 'branch_id' => $this->branchCekok->id]))
+            ->assertForbidden();
+
+        $this->actingAs($this->adminNgunut)
+            ->get(route('reports.members.export', ['format' => 'excel', 'branch_id' => $this->branchCekok->id]))
+            ->assertForbidden();
+
+        // 6. Cashier is forbidden from exporting reports
+        $this->actingAs($this->cashierNgunut)
+            ->get(route('reports.sales.export', ['format' => 'pdf']))
+            ->assertForbidden();
     }
 }

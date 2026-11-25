@@ -6,24 +6,31 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\OperationalExpenseController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\PosLookupController;
+use App\Http\Controllers\PosShiftController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\TransactionReturnController;
 use App\Http\Controllers\UserController;
-use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => false,
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+Route::get('/', function (Request $request) {
+    $user = $request->user();
+
+    if ($user) {
+        return $user->isCashier()
+            ? redirect()->route('pos.index')
+            : redirect()->route('dashboard');
+    }
+
+    return redirect()->route('login');
 });
 
 // Autentikasi Kasir POS (Tap Kartu RFID + PIN 6 Digit)
@@ -43,7 +50,17 @@ Route::middleware(['auth', 'role:kasir'])->group(function () {
         Route::get('/pos/members/lookup', [PosLookupController::class, 'memberByCard'])
             ->name('pos.members.lookup');
 
+        Route::post('/pos/shifts/open', [PosShiftController::class, 'open'])
+            ->name('pos.shifts.open');
+        Route::post('/pos/shifts/{shift}/cash-movements', [PosShiftController::class, 'recordCashMovement'])
+            ->name('pos.shifts.cash-movements.store');
+        Route::post('/pos/shifts/{shift}/close', [PosShiftController::class, 'close'])
+            ->name('pos.shifts.close');
+        Route::get('/pos/shifts/{shift}', [PosShiftController::class, 'summary'])
+            ->name('pos.shifts.summary');
+
         Route::post('/pos/checkout', [PosController::class, 'checkout'])
+            ->middleware('pos.shift')
             ->name('pos.checkout');
         Route::get('/pos/transactions/pending', [PosController::class, 'pendingTransactions'])
             ->name('pos.transactions.pending');
@@ -64,7 +81,44 @@ Route::middleware([
 
     // Laporan Keuangan Berjenjang & Rekap Transaksi Member (SHU)
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
+    Route::get('/reports/sales/export/{format}', [ReportController::class, 'exportSales'])
+        ->whereIn('format', ['pdf', 'excel'])
+        ->name('reports.sales.export');
     Route::get('/reports/members', [ReportController::class, 'members'])->name('reports.members');
+    Route::get('/reports/members/export/{format}', [ReportController::class, 'exportMembers'])
+        ->whereIn('format', ['pdf', 'excel'])
+        ->name('reports.members.export');
+
+    // Modul Biaya Operasional Cabang & Ekspor (PDF/Excel)
+    Route::get('/expenses', [OperationalExpenseController::class, 'index'])->name('expenses.index');
+    Route::get('/expenses/export/{format}', [OperationalExpenseController::class, 'export'])
+        ->whereIn('format', ['pdf', 'excel'])
+        ->name('expenses.export');
+    Route::post('/expenses', [OperationalExpenseController::class, 'store'])->name('expenses.store');
+    Route::put('/expenses/{operationalExpense}', [OperationalExpenseController::class, 'update'])
+        ->name('expenses.update');
+    Route::delete('/expenses/{operationalExpense}', [OperationalExpenseController::class, 'destroy'])
+        ->name('expenses.destroy');
+
+    // Monitoring Shift Kasir & Force-Close (Dashboard Admin)
+    Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
+    Route::get('/shifts/export/{format}', [ShiftController::class, 'export'])
+        ->whereIn('format', ['pdf', 'excel'])
+        ->name('shifts.export');
+    Route::get('/shifts/{shift}', [ShiftController::class, 'show'])->name('shifts.show');
+    Route::post('/shifts/{shift}/force-close', [ShiftController::class, 'forceClose'])
+        ->name('shifts.force-close');
+
+    // Retur Parsial & Full Void Transaksi Terpusat (Dashboard Admin)
+    Route::get('/returns', [TransactionReturnController::class, 'index'])->name('returns.index');
+    Route::get('/returns/export/{format}', [TransactionReturnController::class, 'export'])
+        ->whereIn('format', ['pdf', 'excel'])
+        ->name('returns.export');
+    Route::get('/transactions/{transaction}/return', [TransactionReturnController::class, 'create'])
+        ->name('returns.create');
+    Route::post('/returns', [TransactionReturnController::class, 'store'])->name('returns.store');
+    Route::get('/returns/{transactionReturn}', [TransactionReturnController::class, 'show'])
+        ->name('returns.show');
 
     // Referensi Wilayah Baku (Read-Only Dependent Dropdowns)
     Route::get('/regions/provinces', [RegionController::class, 'provinces'])->name('regions.provinces');

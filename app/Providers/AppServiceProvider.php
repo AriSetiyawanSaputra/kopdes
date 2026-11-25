@@ -4,13 +4,19 @@ namespace App\Providers;
 
 use App\Models\Branch;
 use App\Models\BranchStock;
+use App\Models\CashierShift;
 use App\Models\Member;
+use App\Models\OperationalExpense;
 use App\Models\StockMovement;
+use App\Models\TransactionReturn;
 use App\Models\User;
 use App\Policies\BranchPolicy;
+use App\Policies\CashierShiftPolicy;
 use App\Policies\MemberPolicy;
+use App\Policies\OperationalExpensePolicy;
 use App\Policies\ReportPolicy;
 use App\Policies\StockPolicy;
+use App\Policies\TransactionReturnPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
@@ -38,6 +44,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Member::class, MemberPolicy::class);
         Gate::policy(BranchStock::class, StockPolicy::class);
         Gate::policy(StockMovement::class, StockPolicy::class);
+        Gate::policy(OperationalExpense::class, OperationalExpensePolicy::class);
+        Gate::policy(CashierShift::class, CashierShiftPolicy::class);
+        Gate::policy(TransactionReturn::class, TransactionReturnPolicy::class);
 
         Gate::define('view-dashboard', [ReportPolicy::class, 'viewDashboard']);
         Gate::define('view-sales-report', [ReportPolicy::class, 'viewSalesReport']);

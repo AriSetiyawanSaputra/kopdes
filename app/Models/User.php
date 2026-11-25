@@ -119,4 +119,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(StockMovement::class, 'user_id');
     }
+
+    public function operationalExpenses(): HasMany
+    {
+        return $this->hasMany(OperationalExpense::class, 'user_id');
+    }
+
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(CashierShift::class, 'cashier_id');
+    }
 }

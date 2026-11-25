@@ -21,6 +21,12 @@ class StoreProductRequest extends FormRequest
                 'barcode' => trim((string) $this->input('barcode')),
             ]);
         }
+
+        if ($this->has('member_price') && trim((string) $this->input('member_price')) === '') {
+            $this->merge([
+                'member_price' => null,
+            ]);
+        }
     }
 
     public function authorize(): bool
@@ -43,6 +49,7 @@ class StoreProductRequest extends FormRequest
             'unit' => ['required', 'string', 'max:30'],
             'cost_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
+            'member_price' => ['nullable', 'numeric', 'min:0', 'lte:selling_price'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -65,6 +72,9 @@ class StoreProductRequest extends FormRequest
             'cost_price.min' => 'HPP tidak boleh bernilai negatif.',
             'selling_price.required' => 'Harga jual nasional wajib diisi.',
             'selling_price.min' => 'Harga jual tidak boleh bernilai negatif.',
+            'member_price.numeric' => 'Harga khusus member harus berupa angka yang valid.',
+            'member_price.min' => 'Harga khusus member tidak boleh bernilai negatif.',
+            'member_price.lte' => 'Harga khusus member tidak boleh melebihi harga jual normal.',
         ];
     }
 }

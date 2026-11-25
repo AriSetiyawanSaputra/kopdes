@@ -101,9 +101,11 @@ Dokumen ini adalah **aturan teknis mengikat** yang WAJIB dipatuhi oleh setiap AI
 
 ---
 
-## 6. Aturan Frontend Vue 3, POS Hardware & Cetak Thermal
+## 6. Aturan Frontend Vue 3, Design System KOPDES, POS Hardware & Cetak Thermal
 
-1. **Vue 3 `<script setup>`:** Semua komponen & halaman Vue wajib menggunakan `<script setup>` (dilarang Options API).
+1. **Standar Design System Wajib (`design-system/MASTER.md`):**
+   - Seluruh halaman admin dan komponen baru WAJIB mematuhi standar warna Merah KOPDES (`kopdes-700` `#B91C1C`), tipografi (`Plus Jakarta Sans` + `JetBrains Mono` dengan `tabular-nums`), sistem tombol, layout sidebar pada `AuthenticatedLayout.vue`, ikon SVG Heroicons (tanpa emoji), serta aksesibilitas yang tercatat di [design-system/MASTER.md](./design-system/MASTER.md).
+2. **Vue 3 `<script setup>`:** Semua komponen & halaman Vue wajib menggunakan `<script setup>` (dilarang Options API).
 2. **Isolasi Input HID Keyboard Wedge (Barcode vs. RFID):**
    - Input barcode di `Pos/Index.vue` hanya aktif dan *auto-focus* ketika `activeModal === null` dan kursor tidak sedang di input kuantitas/nominal tunai.
    - Input kartu RFID hanya diterima di dalam modal khusus (`MemberLookupModal.vue` via shortcut `F2` dan `RfidCaptureModal.vue`), dengan debounce 350ms dan fungsi `normalizeCardUid`.

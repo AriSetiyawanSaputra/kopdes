@@ -20,6 +20,7 @@ class Product extends Model
         'unit',
         'cost_price',
         'selling_price',
+        'member_price',
         'is_active',
     ];
 
@@ -28,6 +29,7 @@ class Product extends Model
         return [
             'cost_price' => 'decimal:2',
             'selling_price' => 'decimal:2',
+            'member_price' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }

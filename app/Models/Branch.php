@@ -75,4 +75,14 @@ class Branch extends Model
     {
         return $this->hasMany(Transaction::class, 'branch_id');
     }
+
+    public function operationalExpenses(): HasMany
+    {
+        return $this->hasMany(OperationalExpense::class, 'branch_id');
+    }
+
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(CashierShift::class, 'branch_id');
+    }
 }

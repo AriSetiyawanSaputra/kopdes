@@ -103,6 +103,13 @@ const formatNumeric = (value) => {
                         Rp{{ formatNumeric(item.subtotal) }}
                     </span>
                 </div>
+                <div
+                    v-if="item.is_member_price_applied && Number(item.member_discount_snapshot || 0) > 0"
+                    class="flex justify-between text-[10px]"
+                >
+                    <span>Harga Member (Normal Rp{{ formatNumeric(item.regular_price_snapshot) }})</span>
+                    <span>-Rp{{ formatNumeric(item.member_discount_snapshot) }}</span>
+                </div>
             </div>
         </div>
 
@@ -110,6 +117,16 @@ const formatNumeric = (value) => {
 
         <!-- Ringkasan Pembayaran -->
         <div class="space-y-0.5 text-[11px]">
+            <template v-if="Number(transaction.member_discount_total || 0) > 0">
+                <div class="flex justify-between">
+                    <span>Subtotal Normal</span>
+                    <span>Rp{{ formatNumeric(transaction.regular_subtotal) }}</span>
+                </div>
+                <div class="flex justify-between font-bold">
+                    <span>Total Hemat Member</span>
+                    <span>-Rp{{ formatNumeric(transaction.member_discount_total) }}</span>
+                </div>
+            </template>
             <div class="flex justify-between text-xs font-extrabold">
                 <span>TOTAL</span>
                 <span>Rp{{ formatNumeric(transaction.total_amount) }}</span>
