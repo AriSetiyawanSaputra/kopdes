@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ImportExcelModal from '@/Components/ImportExcelModal.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
@@ -49,6 +50,7 @@ const filterForm = reactive({
 
 const activeRestockItem = ref(null);
 const activeAdjustItem = ref(null);
+const showImportModal = ref(false);
 
 const restockForm = useForm({
     branch_id: '',
@@ -202,7 +204,15 @@ const submitAdjust = () => {
                     </p>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        v-if="permissions.can_import"
+                        type="button"
+                        @click="showImportModal = true"
+                        class="btn-kopdes-emerald !py-2"
+                    >
+                        Import Stok Awal (Excel/CSV)
+                    </button>
                     <Link
                         :href="
                             route('inventory.movements', {
@@ -672,5 +682,15 @@ const submitAdjust = () => {
                 </div>
             </form>
         </Modal>
+        <ImportExcelModal
+            :show="showImportModal"
+            type="stocks"
+            title="Import Massal Stok Awal Cabang"
+            description="Tambah stok awal produk secara massal. Setiap baris valid otomatis dicatat ke Audit Log Stok (restock)."
+            :branches="branches"
+            :require-branch-selection="Boolean(permissions.is_admin_nasional)"
+            :default-branch-id="selectedBranch?.id ?? ''"
+            @close="showImportModal = false"
+        />
     </AuthenticatedLayout>
 </template>

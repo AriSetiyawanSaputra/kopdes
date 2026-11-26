@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     transaction: {
@@ -15,6 +16,14 @@ const props = defineProps({
         default: '58mm',
     },
 });
+
+const page = usePage();
+const appSettings = computed(() => page.props.app_settings || {});
+const institutionName = computed(() => appSettings.value.institution_name || 'Koperasi Desa Merah Putih');
+const institutionLogoUrl = computed(() => appSettings.value.institution_logo_url || null);
+const receiptFooter = computed(
+    () => appSettings.value.receipt_footer || 'Terima kasih telah berbelanja di KOPDES Merah Putih.',
+);
 
 const receiptBranch = computed(() => {
     return props.transaction?.branch ?? props.branch ?? {};
@@ -41,8 +50,17 @@ const formatNumeric = (value) => {
     >
         <!-- Header Cabang KOPDES -->
         <div class="text-center">
+            <img
+                v-if="institutionLogoUrl"
+                :src="institutionLogoUrl"
+                :alt="institutionName"
+                class="mx-auto mb-1 max-h-10 w-auto object-contain"
+            />
+            <div class="text-[10px] font-bold uppercase tracking-wide">
+                {{ institutionName }}
+            </div>
             <div class="text-sm font-bold uppercase leading-tight">
-                {{ receiptBranch.name || 'KOPDES MERAH PUTIH' }}
+                {{ receiptBranch.name || institutionName }}
             </div>
             <div class="text-[11px] leading-tight">
                 Kode: {{ receiptBranch.code || '-' }}
@@ -157,9 +175,8 @@ const formatNumeric = (value) => {
 
         <!-- Footer Koperasi -->
         <div class="text-center text-[10px] leading-tight">
-            <div class="font-bold">TERIMA KASIH ATAS KUNJUNGAN ANDA</div>
-            <div>Koperasi Desa Merah Putih</div>
-            <div>Bersama Membangun Ekonomi Desa</div>
+            <div class="font-bold">{{ receiptFooter }}</div>
+            <div>{{ institutionName }}</div>
         </div>
     </div>
 </template>

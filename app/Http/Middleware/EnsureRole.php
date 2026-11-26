@@ -14,7 +14,7 @@ class EnsureRole
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        $user = $request->user();
+        $user = $request->user('web');
 
         if (! $user || ! $user->is_active) {
             abort(403, 'Akun Anda tidak aktif atau tidak memiliki akses.');

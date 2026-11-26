@@ -14,12 +14,16 @@ class StoreMemberRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $actor = $this->user();
+        $rawCard = $this->input('card_uid');
+        $trimmedCard = is_scalar($rawCard) ? trim((string) $rawCard) : '';
 
-        if ($this->filled('card_uid')) {
-            $this->merge([
-                'card_uid' => CardUidNormalizer::normalize((string) $this->input('card_uid')),
-            ]);
-        }
+        $rawPin = $this->input('pin');
+        $trimmedPin = is_scalar($rawPin) ? trim((string) $rawPin) : '';
+
+        $this->merge([
+            'card_uid' => $trimmedCard === '' ? null : CardUidNormalizer::normalize($trimmedCard),
+            'pin' => $trimmedPin === '' ? null : $trimmedPin,
+        ]);
 
         if ($actor?->isAdminCabang() && ! $this->filled('home_branch_id')) {
             $this->merge([
@@ -57,7 +61,7 @@ class StoreMemberRequest extends FormRequest
             'home_branch_id' => ['required', 'integer', Rule::exists('branches', 'id')],
             'name' => ['required', 'string', 'max:150'],
             'card_uid' => [
-                'required',
+                'nullable',
                 'string',
                 'max:64',
                 new UniqueCardUidAcrossActors,
@@ -70,6 +74,7 @@ class StoreMemberRequest extends FormRequest
                 Rule::unique('members', 'nik'),
             ],
             'status' => ['sometimes', 'string', Rule::in(['active', 'inactive'])],
+            'pin' => ['nullable', 'string', 'regex:/^\d{6}$/'],
             'joined_at' => ['nullable', 'date'],
         ];
     }
@@ -85,6 +90,7 @@ class StoreMemberRequest extends FormRequest
             'name.required' => 'Nama lengkap anggota wajib diisi.',
             'card_uid.required' => 'Kartu RFID anggota wajib dipindai/diisi.',
             'nik.unique' => 'NIK ini sudah terdaftar pada anggota KOPDES lain.',
+            'pin.regex' => 'PIN Portal Member wajib terdiri dari tepat 6 digit angka.',
         ];
     }
 }

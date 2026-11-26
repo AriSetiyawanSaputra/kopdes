@@ -145,7 +145,10 @@
         <table class="letterhead-table">
             <tr>
                 <td style="width: 55%;">
-                    <p class="brand-title">KOPERASI DESA MERAH PUTIH (KOPDES)</p>
+                    @if (! empty($meta['institution_logo_data_uri']))
+                        <img src="{{ $meta['institution_logo_data_uri'] }}" alt="Logo" style="height: 28px; float: left; margin-right: 8px;" />
+                    @endif
+                    <p class="brand-title">{{ strtoupper($meta['institution_name'] ?? 'KOPERASI DESA MERAH PUTIH (KOPDES)') }}</p>
                     <p class="brand-subtitle">Pencatatan &amp; Audit Biaya Operasional Cabang KOPDES</p>
                 </td>
                 <td class="doc-badge" style="width: 45%;">

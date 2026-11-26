@@ -27,12 +27,16 @@ watch(
             document.body.style.overflow = 'hidden';
             showSlot.value = true;
 
-            dialog.value?.showModal();
+            if (dialog.value && !dialog.value.open) {
+                dialog.value.showModal();
+            }
         } else {
             document.body.style.overflow = '';
 
             setTimeout(() => {
-                dialog.value?.close();
+                if (dialog.value?.open) {
+                    dialog.value.close();
+                }
                 showSlot.value = false;
             }, 200);
         }
@@ -55,7 +59,18 @@ const closeOnEscape = (e) => {
     }
 };
 
-onMounted(() => document.addEventListener('keydown', closeOnEscape));
+onMounted(() => {
+    document.addEventListener('keydown', closeOnEscape);
+
+    if (props.show) {
+        document.body.style.overflow = 'hidden';
+        showSlot.value = true;
+
+        if (dialog.value && !dialog.value.open) {
+            dialog.value.showModal();
+        }
+    }
+});
 
 onUnmounted(() => {
     document.removeEventListener('keydown', closeOnEscape);
@@ -78,6 +93,7 @@ const maxWidthClass = computed(() => {
     <dialog
         class="z-50 m-0 min-h-full min-w-full overflow-y-auto bg-transparent backdrop:bg-transparent"
         ref="dialog"
+        @cancel.prevent="close"
     >
         <div
             class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0"

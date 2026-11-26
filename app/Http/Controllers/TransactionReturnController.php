@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Models\TransactionReturn;
 use App\Models\TransactionReturnItem;
+use App\Services\AppSettingService;
 use App\Services\FinancialReportService;
 use App\Services\ReportExportService;
 use App\Services\TransactionReturnService;
@@ -26,6 +27,7 @@ class TransactionReturnController extends Controller
         private readonly TransactionReturnService $returnService,
         private readonly FinancialReportService $reportService,
         private readonly ReportExportService $exportService,
+        private readonly AppSettingService $appSettingService,
     ) {}
 
     /**
@@ -82,7 +84,7 @@ class TransactionReturnController extends Controller
             'items.returnItems',
         ]);
 
-        $maxDays = (int) config('kopdes.return_max_days', 7);
+        $maxDays = (int) $this->appSettingService->get('return_max_days', (int) config('kopdes.return_max_days', 7));
         $isWithinWindow = $transaction->paid_at !== null
             && now()->lte($transaction->paid_at->copy()->addDays($maxDays)->endOfDay());
         $isEligible = $transaction->payment_status === 'paid'

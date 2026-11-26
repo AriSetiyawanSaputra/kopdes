@@ -17,11 +17,12 @@ class UpdateMemberRequest extends FormRequest
         /** @var Member|null $member */
         $member = $this->route('member');
 
-        if ($this->filled('card_uid')) {
-            $this->merge([
-                'card_uid' => CardUidNormalizer::normalize((string) $this->input('card_uid')),
-            ]);
-        }
+        $rawCard = $this->input('card_uid');
+        $trimmedCard = is_scalar($rawCard) ? trim((string) $rawCard) : '';
+
+        $this->merge([
+            'card_uid' => $trimmedCard === '' ? null : CardUidNormalizer::normalize($trimmedCard),
+        ]);
 
         if ($actor?->isAdminCabang()) {
             $this->merge([
@@ -66,7 +67,7 @@ class UpdateMemberRequest extends FormRequest
             'home_branch_id' => ['required', 'integer', Rule::exists('branches', 'id')],
             'name' => ['required', 'string', 'max:150'],
             'card_uid' => [
-                'required',
+                'nullable',
                 'string',
                 'max:64',
                 new UniqueCardUidAcrossActors(ignoreMemberId: $member->id),

@@ -157,6 +157,8 @@ class InventoryController extends Controller
                 'can_restock' => $canMutate,
                 'can_adjust' => $canMutate,
                 'can_mutate' => $canMutate,
+                'can_import' => $actor->isAdminNasional() || $actor->isAdminCabang(),
+                'is_admin_nasional' => $actor->isAdminNasional(),
             ],
         ]);
     }

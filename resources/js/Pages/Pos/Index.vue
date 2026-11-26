@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import CloseShiftModal from '@/Pages/Pos/Partials/CloseShiftModal.vue';
+import HardwareSimulatorPopover from '@/Pages/Pos/Partials/HardwareSimulatorPopover.vue';
 import MemberLookupModal from '@/Pages/Pos/Partials/MemberLookupModal.vue';
 import OpenShiftModal from '@/Pages/Pos/Partials/OpenShiftModal.vue';
 import PaymentModal from '@/Pages/Pos/Partials/PaymentModal.vue';
@@ -11,7 +12,7 @@ import ShiftCashMovementModal from '@/Pages/Pos/Partials/ShiftCashMovementModal.
 import ShiftClosingReceipt from '@/Pages/Pos/Partials/ShiftClosingReceipt.vue';
 import { useIdleLock } from '@/Composables/useIdleLock';
 import { generateUuidV4 } from '@/Utils/uuid';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     branch: {
@@ -83,7 +84,11 @@ const pendingTransactions = ref([...props.initialPendingTransactions]);
 const todayTransactions = ref([...props.initialTodayTransactions]);
 const activeReceiptTransaction = ref(null);
 const activeShiftClosingReceipt = ref(null);
-const paperWidth = ref('58mm');
+const page = usePage();
+const isDemoMode = computed(() => Boolean(page.props.app?.demo_mode));
+const defaultPaperWidth =
+    page.props.app_settings?.default_receipt_paper === '80mm' ? '80mm' : '58mm';
+const paperWidth = ref(defaultPaperWidth);
 
 const { lockPosSession, resetIdleTimer } = useIdleLock({
     timeoutMs: 900000,
@@ -314,6 +319,35 @@ const handleBarcodeSubmit = async () => {
     } finally {
         isScanningBarcode.value = false;
         focusBarcodeInputIfIdle();
+    }
+};
+
+const simulateBarcodeScan = async (barcode) => {
+    if (!barcode || isLocked.value || !currentShift.value) {
+        return;
+    }
+    barcodeQuery.value = barcode;
+    await handleBarcodeSubmit();
+};
+
+const simulateMemberTap = async (cardUid) => {
+    if (!cardUid || isLocked.value || !currentShift.value) {
+        return;
+    }
+    try {
+        const response = await window.axios.get(route('pos.members.lookup'), {
+            params: { card_uid: cardUid },
+        });
+        selectedMember.value = response.data;
+        showNotification(
+            'success',
+            `[Simulasi RFID] Member tertaut: ${response.data.name} — ${response.data.home_branch_name}`,
+        );
+    } catch (error) {
+        showNotification(
+            'error',
+            error?.response?.data?.message || 'Gagal menautkan kartu member simulasi.',
+        );
     }
 };
 
@@ -768,6 +802,15 @@ onBeforeUnmount(() => {
                     </div>
 
                     <button
+                        v-if="!currentShift"
+                        type="button"
+                        @click.stop="activeModal = 'open-shift'"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-400 px-3 py-1.5 text-xs font-extrabold text-gray-950 hover:bg-amber-300"
+                    >
+                        <span>Buka Shift</span>
+                    </button>
+
+                    <button
                         v-if="currentShift"
                         type="button"
                         @click.stop="activeModal = 'cash-movement'"
@@ -786,6 +829,13 @@ onBeforeUnmount(() => {
                         <span>Tutup Shift</span>
                         <kbd class="rounded bg-emerald-900 px-1.5 py-0.5 font-mono text-[10px]">F10</kbd>
                     </button>
+
+                    <Link
+                        :href="route('products.barcode-labels')"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-red-600 bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600"
+                    >
+                        <span>Label Barcode</span>
+                    </Link>
 
                     <button
                         type="button"
@@ -1285,6 +1335,13 @@ onBeforeUnmount(() => {
             :current-cashier="currentCashier"
             :branch="branch"
             @unlocked="handlePosUnlocked"
+        />
+
+        <!-- Simulator Hardware POS (Hanya dirender bila APP_DEMO_MODE=true) -->
+        <HardwareSimulatorPopover
+            v-if="isDemoMode && currentShift && !isLocked"
+            @scan-barcode="simulateBarcodeScan"
+            @tap-member="simulateMemberTap"
         />
     </div>
 

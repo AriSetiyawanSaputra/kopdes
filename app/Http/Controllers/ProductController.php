@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
+use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,6 +15,9 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+    ) {}
     /**
      * Display the global product catalog (CRUD for admin_nasional, read-only for other admin roles).
      */
@@ -131,7 +136,36 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, Product $product): RedirectResponse
     {
+        $oldPrices = [
+            'cost_price' => (float) $product->cost_price,
+            'selling_price' => (float) $product->selling_price,
+            'member_price' => $product->member_price !== null ? (float) $product->member_price : null,
+        ];
+
         $product->update($request->validated());
+        $product->refresh();
+
+        $newPrices = [
+            'cost_price' => (float) $product->cost_price,
+            'selling_price' => (float) $product->selling_price,
+            'member_price' => $product->member_price !== null ? (float) $product->member_price : null,
+        ];
+
+        if ($oldPrices !== $newPrices) {
+            $this->activityLogService->record(
+                action: ActivityLog::ACTION_PRODUCT_PRICE_UPDATED,
+                description: "Memperbarui harga produk {$product->name} ({$product->sku})",
+                actor: $request->user(),
+                subject: $product,
+                oldValues: $oldPrices,
+                newValues: $newPrices,
+                regionOverride: [
+                    'province_id' => null,
+                    'regency_id' => null,
+                    'branch_id' => null,
+                ],
+            );
+        }
 
         return redirect()
             ->route('products.index')

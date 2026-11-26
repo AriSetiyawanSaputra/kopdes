@@ -4,7 +4,7 @@ import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { normalizeCardUid } from '@/Utils/normalizeCardUid';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 
 defineProps({
     status: {
@@ -12,6 +12,20 @@ defineProps({
         default: '',
     },
 });
+
+const page = usePage();
+const isDemoMode = computed(() => Boolean(page.props.app?.demo_mode));
+
+const demoCashierAccounts = [
+    { label: 'Kasir KOPDES Ngunut', sub: 'Cabang A (Ponorogo)', card_uid: '0008493873', pin: '123456' },
+    { label: 'Kasir KOPDES Cekok', sub: 'Cabang B (Ponorogo)', card_uid: '0008305215', pin: '123456' },
+];
+
+const fillDemoCashier = (account) => {
+    form.clearErrors();
+    form.card_uid = account.card_uid;
+    form.pin = account.pin;
+};
 
 const cardInputRef = ref(null);
 const pinInputRef = ref(null);
@@ -141,27 +155,37 @@ onBeforeUnmount(() => {
     <GuestLayout>
         <Head title="Login Kasir POS — RFID & PIN" />
 
-        <!-- Dual-Mode Auth Switcher -->
-        <div class="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+        <!-- Tri-Mode Auth Switcher -->
+        <div class="mb-6 grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
             <Link
                 :href="route('login')"
-                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
+                class="flex cursor-pointer items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Admin Dashboard
+                <span>Admin</span>
             </Link>
 
             <span
-                class="flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-kopdes-700 shadow-sm ring-1 ring-slate-200/80"
+                class="flex items-center justify-center gap-1 rounded-lg bg-white px-2 py-2 text-[11px] font-bold text-kopdes-700 shadow-sm ring-1 ring-slate-200/80"
                 aria-current="page"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
-                Kasir POS (RFID)
+                <span>Kasir POS</span>
             </span>
+
+            <Link
+                :href="route().has('member.login') ? route('member.login') : '/member/login'"
+                class="flex cursor-pointer items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+                </svg>
+                <span>Member</span>
+            </Link>
         </div>
 
         <!-- Heading -->
@@ -266,5 +290,35 @@ onBeforeUnmount(() => {
                 </PrimaryButton>
             </div>
         </form>
+
+        <!-- Panel Quick-Fill Mode Demo Portofolio (Hanya saat APP_DEMO_MODE=true) -->
+        <div
+            v-if="isDemoMode"
+            class="mt-5 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5"
+        >
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    Mode Demo Portofolio — Quick-Fill Kasir
+                </span>
+                <span class="rounded bg-amber-200/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                    RFID + PIN
+                </span>
+            </div>
+            <p class="mt-1 text-[11px] text-amber-800">
+                Isi UID kartu RFID &amp; PIN kasir demo tanpa alat pembaca fisik, lalu klik Buka Layar Kasir POS.
+            </p>
+            <div class="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                <button
+                    v-for="acc in demoCashierAccounts"
+                    :key="acc.card_uid"
+                    type="button"
+                    @click="fillDemoCashier(acc)"
+                    class="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-left transition hover:border-kopdes-400 hover:bg-kopdes-50"
+                >
+                    <div class="text-[11px] font-bold text-slate-900">{{ acc.label }}</div>
+                    <div class="kopdes-num text-[10px] text-slate-500">UID: {{ acc.card_uid }} · PIN: {{ acc.pin }}</div>
+                </button>
+            </div>
+        </div>
     </GuestLayout>
 </template>

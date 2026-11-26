@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\BranchStock;
 use App\Models\CashierShift;
@@ -18,6 +19,10 @@ use Illuminate\Validation\ValidationException;
 
 class TransactionReturnService
 {
+    public function __construct(
+        private readonly AppSettingService $appSettingService,
+        private readonly ActivityLogService $activityLogService,
+    ) {}
     /**
      * Eksekusi Retur Parsial maupun Full Void secara atomik di dalam DB::transaction() + lockForUpdate()
      * (FR-P2-05 s.d. FR-P2-08 & PRD_PHASE2 6.3).
@@ -52,8 +57,8 @@ class TransactionReturnService
                 ]);
             }
 
-            // 3. Validasi batas waktu retur (default 7 hari kalender sejak paid_at)
-            $maxDays = (int) config('kopdes.return_max_days', 7);
+            // 3. Validasi batas waktu retur (dinamis dari app_settings, fallback config/default 7 hari)
+            $maxDays = (int) $this->appSettingService->get('return_max_days', (int) config('kopdes.return_max_days', 7));
             if (! $transaction->paid_at || now()->gt($transaction->paid_at->copy()->addDays($maxDays)->endOfDay())) {
                 throw ValidationException::withMessages([
                     'transaction_id' => "Transaksi ini telah melewati batas waktu retur {$maxDays} hari kalender sejak pembayaran.",
@@ -265,11 +270,13 @@ class TransactionReturnService
             }
 
             // 10. Perbarui status retur pada transaksi asal
+            $previousReturnStatus = $transaction->return_status ?? 'none';
+            $nextReturnStatus = $isFullAfterReturn ? 'full' : 'partial';
             $transaction->update([
-                'return_status' => $isFullAfterReturn ? 'full' : 'partial',
+                'return_status' => $nextReturnStatus,
             ]);
 
-            return $return->fresh([
+            $freshReturn = $return->fresh([
                 'transaction',
                 'branch',
                 'processedBy',
@@ -277,6 +284,31 @@ class TransactionReturnService
                 'refundShift.cashier',
                 'items',
             ]);
+
+            $this->activityLogService->record(
+                action: ActivityLog::ACTION_TRANSACTION_RETURNED,
+                description: "Memproses retur {$freshReturn->return_number} ({$freshReturn->return_type}) untuk invoice {$transaction->invoice_number} senilai Rp ".number_format((float) $freshReturn->total_refund_amount, 0, ',', '.'),
+                actor: $actor,
+                subject: $freshReturn,
+                oldValues: [
+                    'transaction_id' => $transaction->id,
+                    'invoice_number' => $transaction->invoice_number,
+                    'return_status' => $previousReturnStatus,
+                ],
+                newValues: [
+                    'return_number' => $freshReturn->return_number,
+                    'return_type' => $freshReturn->return_type,
+                    'return_status' => $nextReturnStatus,
+                    'refund_method' => $freshReturn->refund_method,
+                    'cash_source' => $freshReturn->cash_source,
+                    'total_refund_amount' => (float) $freshReturn->total_refund_amount,
+                    'total_restocked_cogs' => (float) $freshReturn->total_restocked_cogs,
+                    'total_damaged_cogs' => (float) $freshReturn->total_damaged_cogs,
+                    'reason' => $freshReturn->reason,
+                ],
+            );
+
+            return $freshReturn;
         });
     }
 

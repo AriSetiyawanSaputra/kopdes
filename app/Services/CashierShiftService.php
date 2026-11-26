@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\CashierShift;
 use App\Models\ShiftCashMovement;
@@ -15,6 +16,9 @@ use Illuminate\Validation\ValidationException;
 
 class CashierShiftService
 {
+    public function __construct(
+        private readonly ActivityLogService $activityLogService,
+    ) {}
     /**
      * Ambil shift berstatus 'open' milik kasir pada cabangnya saat ini.
      */
@@ -243,7 +247,31 @@ class CashierShiftService
                 'closed_at' => now(),
             ]);
 
-            return $lockedShift->fresh(['branch', 'cashier', 'closedBy', 'cashMovements.user']);
+            $closedShift = $lockedShift->fresh(['branch', 'cashier', 'closedBy', 'cashMovements.user']);
+
+            if ($isForceClose) {
+                $this->activityLogService->record(
+                    action: ActivityLog::ACTION_SHIFT_FORCE_CLOSED,
+                    description: "Force-close shift {$closedShift->shift_code} milik kasir ".($closedShift->cashier?->name ?? '-')." (selisih Rp ".number_format((float) $closedShift->variance, 0, ',', '.').')',
+                    actor: $actor,
+                    subject: $closedShift,
+                    oldValues: [
+                        'status' => CashierShift::STATUS_OPEN,
+                        'is_force_closed' => false,
+                    ],
+                    newValues: [
+                        'shift_code' => $closedShift->shift_code,
+                        'status' => CashierShift::STATUS_CLOSED,
+                        'is_force_closed' => true,
+                        'expected_closing_cash' => (float) $closedShift->expected_closing_cash,
+                        'actual_closing_cash' => (float) $closedShift->actual_closing_cash,
+                        'variance' => (float) $closedShift->variance,
+                        'closing_notes' => $closedShift->closing_notes,
+                    ],
+                );
+            }
+
+            return $closedShift;
         });
     }
 

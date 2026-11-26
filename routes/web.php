@@ -1,19 +1,27 @@
 <?php
 
+use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\Auth\MemberAuthController;
 use App\Http\Controllers\Auth\PosAuthController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BulkImportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DemoSimulatorController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\MemberCardController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\MemberPortalController;
 use App\Http\Controllers\OperationalExpenseController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\PosLookupController;
 use App\Http\Controllers\PosShiftController;
+use App\Http\Controllers\ProductBarcodeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\TransactionReturnController;
 use App\Http\Controllers\UserController;
@@ -37,7 +45,22 @@ Route::get('/', function (Request $request) {
 Route::get('/pos/login', [PosAuthController::class, 'showLogin'])->name('pos.login');
 Route::post('/pos/login', [PosAuthController::class, 'login'])->name('pos.login.store');
 
-Route::middleware(['auth', 'role:kasir'])->group(function () {
+// Portal Mandiri Member (Guard Terpisah: 'member' — FR-P3-09 s.d. FR-P3-12)
+Route::middleware('guest.member')->group(function () {
+    Route::get('/member/login', [MemberAuthController::class, 'showLogin'])->name('member.login');
+    Route::post('/member/login', [MemberAuthController::class, 'login'])->name('member.login.store');
+});
+
+Route::middleware('auth.member')->prefix('member')->name('member.')->group(function () {
+    Route::get('/', [MemberPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/transactions', [MemberPortalController::class, 'transactions'])->name('transactions.index');
+    Route::get('/transactions/{transaction}', [MemberPortalController::class, 'showTransaction'])->name('transactions.show');
+    Route::get('/security', [MemberPortalController::class, 'security'])->name('security');
+    Route::put('/security/pin', [MemberPortalController::class, 'updatePin'])->name('security.pin.update');
+    Route::post('/logout', [MemberAuthController::class, 'logout'])->name('logout');
+});
+
+Route::middleware(['auth:web', 'role:kasir'])->group(function () {
     Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
 
     Route::post('/pos/lock', [PosAuthController::class, 'lock'])->name('pos.lock');
@@ -71,10 +94,24 @@ Route::middleware(['auth', 'role:kasir'])->group(function () {
         Route::post('/pos/transactions/{transaction}/cancel', [PosController::class, 'cancel'])
             ->name('pos.transactions.cancel');
     });
+
+    // Endpoint Sampel Simulator Hardware POS (Hanya aktif bila APP_DEMO_MODE=true; 404 bila false)
+    Route::get('/demo/pos-samples', [DemoSimulatorController::class, 'posSamples'])
+        ->middleware('demo.mode')
+        ->name('demo.pos-samples');
+});
+
+// Cetak Label Barcode Produk (Akses oleh semua role Admin & Kasir — FR-P3-05)
+Route::middleware([
+    'auth:web',
+    'role:admin_nasional,admin_provinsi,admin_kabupaten,admin_cabang,kasir',
+])->group(function () {
+    Route::get('/products/barcode-labels', [ProductBarcodeController::class, 'index'])
+        ->name('products.barcode-labels');
 });
 
 Route::middleware([
-    'auth',
+    'auth:web',
     'role:admin_nasional,admin_provinsi,admin_kabupaten,admin_cabang',
 ])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -150,16 +187,28 @@ Route::middleware([
     Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])
         ->name('users.toggle-active');
 
-    // Manajemen Keanggotaan (Member) & Ganti Kartu RFID
+    // Manajemen Keanggotaan (Member), Cetak Kartu Fisik & Ganti Kartu RFID
     Route::get('/members', [MemberController::class, 'index'])->name('members.index');
     Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
+    Route::get('/members/print-cards', [MemberCardController::class, 'batch'])->name('members.print-cards');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
+    Route::get('/members/{member}/card', [MemberCardController::class, 'show'])->name('members.card');
     Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->name('members.edit');
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::patch('/members/{member}/replace-card', [MemberController::class, 'replaceCard'])
         ->name('members.replace-card');
     Route::patch('/members/{member}/toggle-status', [MemberController::class, 'toggleStatus'])
         ->name('members.toggle-status');
+    Route::post('/members/{member}/reset-pin', [MemberController::class, 'resetPin'])
+        ->name('members.reset-pin');
+
+    // Import Massal Excel/CSV (All-or-Nothing) & Unduh Template Resmi
+    Route::get('/imports/{type}/template', [BulkImportController::class, 'downloadTemplate'])
+        ->whereIn('type', ['products', 'stocks', 'members'])
+        ->name('imports.template');
+    Route::post('/imports/{type}', [BulkImportController::class, 'import'])
+        ->whereIn('type', ['products', 'stocks', 'members'])
+        ->name('imports.store');
 
     // Master Kategori & Katalog Produk Global
     Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
@@ -179,9 +228,14 @@ Route::middleware([
     Route::post('/inventory/restock', [InventoryController::class, 'restock'])->name('inventory.restock');
     Route::post('/inventory/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');
     Route::get('/inventory/movements', [InventoryController::class, 'movements'])->name('inventory.movements');
+
+    // Pengaturan Sistem Dinamis (Khusus Admin Nasional) & Audit Trail Admin (Read-Only)
+    Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+    Route::put('/settings', [SettingController::class, 'update'])->name('settings.update');
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth:web')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

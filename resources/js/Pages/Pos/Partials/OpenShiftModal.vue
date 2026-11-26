@@ -40,6 +40,7 @@ watch(
             });
         }
     },
+    { immediate: true },
 );
 
 const submitOpenShift = async () => {

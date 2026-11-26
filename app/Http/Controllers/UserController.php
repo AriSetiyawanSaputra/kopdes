@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Province;
 use App\Models\Regency;
 use App\Models\User;
+use App\Services\ActivityLogService;
 use App\Services\UserManagementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,7 @@ class UserController extends Controller
 {
     public function __construct(
         private readonly UserManagementService $userManagementService,
+        private readonly ActivityLogService $activityLogService,
     ) {}
 
     /**
@@ -194,8 +197,18 @@ class UserController extends Controller
     {
         Gate::authorize('toggleActive', $user);
 
+        $oldActive = (bool) $user->is_active;
         $updated = $this->userManagementService->toggleActive($user);
         $statusText = $updated->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        $this->activityLogService->record(
+            action: ActivityLog::ACTION_USER_STATUS_TOGGLED,
+            description: "Akun {$updated->name} ({$updated->role}) {$statusText}",
+            actor: $request->user(),
+            subject: $updated,
+            oldValues: ['is_active' => $oldActive],
+            newValues: ['is_active' => (bool) $updated->is_active, 'role' => $updated->role],
+        );
 
         return redirect()
             ->back()

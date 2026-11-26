@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     shift: {
@@ -15,6 +16,14 @@ const props = defineProps({
         default: '58mm',
     },
 });
+
+const page = usePage();
+const appSettings = computed(() => page.props.app_settings || {});
+const institutionName = computed(() => appSettings.value.institution_name || 'Koperasi Desa Merah Putih');
+const institutionLogoUrl = computed(() => appSettings.value.institution_logo_url || null);
+const receiptFooter = computed(
+    () => appSettings.value.receipt_footer || 'Arsip Rekonsiliasi Kasir KOPDES',
+);
 
 const receiptBranch = computed(() => props.shift?.branch ?? props.branch ?? {});
 
@@ -43,8 +52,17 @@ const formatNumeric = (value) => {
         :class="widthClass"
     >
         <div class="text-center">
+            <img
+                v-if="institutionLogoUrl"
+                :src="institutionLogoUrl"
+                :alt="institutionName"
+                class="mx-auto mb-1 max-h-10 w-auto object-contain"
+            />
+            <div class="text-[10px] font-bold uppercase">
+                {{ institutionName }}
+            </div>
             <div class="text-sm font-bold uppercase leading-tight">
-                {{ receiptBranch.name || 'KOPDES MERAH PUTIH' }}
+                {{ receiptBranch.name || institutionName }}
             </div>
             <div class="text-[11px] font-bold">
                 STRUK RINGKASAN TUTUP SHIFT
@@ -132,7 +150,8 @@ const formatNumeric = (value) => {
         <div class="my-1.5 border-t border-dashed border-black"></div>
 
         <div class="text-center text-[10px]">
-            <div>Arsip Rekonsiliasi Kasir KOPDES</div>
+            <div class="font-bold">{{ receiptFooter }}</div>
+            <div>Arsip Rekonsiliasi Kasir &bull; {{ institutionName }}</div>
         </div>
     </div>
 </template>

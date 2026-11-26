@@ -1,6 +1,10 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ImportExcelModal from '@/Components/ImportExcelModal.vue';
+import InputError from '@/Components/InputError.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import RfidCaptureModal from '@/Components/RfidCaptureModal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
@@ -33,8 +37,14 @@ const filterForm = reactive({
 });
 
 const replaceCardMember = ref(null);
+const resetPinMember = ref(null);
+const showImportModal = ref(false);
 const replaceCardForm = useForm({
     card_uid: '',
+});
+const resetPinForm = useForm({
+    pin: '',
+    pin_confirmation: '',
 });
 
 const applyFilters = () => {
@@ -87,6 +97,31 @@ const onReplaceCardCaptured = (normalizedUid) => {
     );
 };
 
+const openResetPinModal = (member) => {
+    resetPinForm.clearErrors();
+    resetPinForm.reset();
+    resetPinMember.value = member;
+};
+
+const closeResetPinModal = () => {
+    resetPinMember.value = null;
+    resetPinForm.reset();
+    resetPinForm.clearErrors();
+};
+
+const submitResetPin = () => {
+    if (!resetPinMember.value) {
+        return;
+    }
+
+    resetPinForm.post(route('members.reset-pin', resetPinMember.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeResetPinModal();
+        },
+    });
+};
+
 const toggleMemberStatus = (member) => {
     const actionLabel =
         member.status === 'active' ? 'menonaktifkan' : 'mengaktifkan';
@@ -123,13 +158,28 @@ const toggleMemberStatus = (member) => {
                     </p>
                 </div>
 
-                <div v-if="permissions.can_create">
+                <div class="flex flex-wrap items-center gap-2">
                     <Link
-                        :href="route('members.create')"
-                        class="inline-flex items-center rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800"
+                        :href="route('members.print-cards')"
+                        class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                     >
-                        + Registrasi Member Baru
+                        Cetak Kartu Batch
                     </Link>
+                    <template v-if="permissions.can_create">
+                        <button
+                            type="button"
+                            @click="showImportModal = true"
+                            class="btn-kopdes-emerald !py-2"
+                        >
+                            Import Member (Excel/CSV)
+                        </button>
+                        <Link
+                            :href="route('members.create')"
+                            class="inline-flex items-center rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800"
+                        >
+                            + Registrasi Member Baru
+                        </Link>
+                    </template>
                 </div>
             </div>
         </template>
@@ -265,65 +315,92 @@ const toggleMemberStatus = (member) => {
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3">
                                         <span
+                                            v-if="member.card_uid"
                                             class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-2 py-0.5 font-mono text-xs font-bold text-blue-800"
                                         >
                                             {{ member.card_uid }}
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800"
+                                        >
+                                            Belum Binding RFID
                                         </span>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-gray-600">
                                         {{ member.joined_at }}
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-center">
-                                        <span
-                                            v-if="member.status === 'active'"
-                                            class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800"
-                                        >
-                                            Aktif
-                                        </span>
-                                        <span
-                                            v-else
-                                            class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800"
-                                        >
-                                            Nonaktif
-                                        </span>
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span
+                                                v-if="member.status === 'active'"
+                                                class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800"
+                                            >
+                                                Aktif
+                                            </span>
+                                            <span
+                                                v-else
+                                                class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800"
+                                            >
+                                                Nonaktif
+                                            </span>
+                                            <span
+                                                v-if="member.has_portal_pin"
+                                                class="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                            >
+                                                PIN Portal Aktif
+                                            </span>
+                                            <span
+                                                v-else
+                                                class="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+                                            >
+                                                Belum Ada PIN
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right">
-                                        <div
-                                            v-if="member.can_update"
-                                            class="inline-flex items-center gap-1.5"
-                                        >
-                                            <button
-                                                type="button"
-                                                @click="openReplaceCardModal(member)"
-                                                class="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
-                                            >
-                                                Ganti Kartu RFID
-                                            </button>
+                                        <div class="inline-flex items-center gap-1.5">
                                             <Link
-                                                :href="route('members.edit', member.id)"
-                                                class="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                                :href="route('members.card', member.id)"
+                                                class="rounded border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100"
                                             >
-                                                Edit
+                                                Cetak Kartu
                                             </Link>
-                                            <button
-                                                type="button"
-                                                @click="toggleMemberStatus(member)"
-                                                class="rounded px-2.5 py-1 text-xs font-semibold shadow-sm"
-                                                :class="
-                                                    member.status === 'active'
-                                                        ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
-                                                        : 'border border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
-                                                "
-                                            >
-                                                {{ member.status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}
-                                            </button>
+                                            <template v-if="member.can_update">
+                                                <button
+                                                    type="button"
+                                                    @click="openResetPinModal(member)"
+                                                    class="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100"
+                                                >
+                                                    {{ member.has_portal_pin ? 'Reset PIN' : 'Set PIN' }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    @click="openReplaceCardModal(member)"
+                                                    class="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+                                                >
+                                                    {{ member.card_uid ? 'Ganti Kartu RFID' : 'Pasang Kartu RFID' }}
+                                                </button>
+                                                <Link
+                                                    :href="route('members.edit', member.id)"
+                                                    class="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                                >
+                                                    Edit
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    @click="toggleMemberStatus(member)"
+                                                    class="rounded px-2.5 py-1 text-xs font-semibold shadow-sm"
+                                                    :class="
+                                                        member.status === 'active'
+                                                            ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                                                            : 'border border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
+                                                    "
+                                                >
+                                                    {{ member.status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}
+                                                </button>
+                                            </template>
                                         </div>
-                                        <span
-                                            v-else
-                                            class="text-xs text-gray-400"
-                                        >
-                                            Hanya Lihat
-                                        </span>
                                     </td>
                                 </tr>
                                 <tr v-if="members.length === 0">
@@ -353,6 +430,74 @@ const toggleMemberStatus = (member) => {
             :error-message="replaceCardForm.errors.card_uid"
             @close="closeReplaceCardModal"
             @captured="onReplaceCardCaptured"
+        />
+        <Modal :show="resetPinMember !== null" max-width="md" @close="closeResetPinModal">
+            <div class="p-6">
+                <h3 class="text-lg font-bold text-slate-900">
+                    {{ resetPinMember?.has_portal_pin ? 'Reset PIN Portal Member' : 'Set PIN Portal Member' }}
+                </h3>
+                <p class="mt-1 text-xs text-slate-600">
+                    Atur PIN 6 digit angka untuk akses Portal Mandiri Member
+                    <strong class="text-slate-900">{{ resetPinMember?.name }}</strong>
+                    (<span class="kopdes-num">{{ resetPinMember?.member_code }}</span>).
+                    Aksi ini dicatat di Audit Trail tanpa menyimpan nilai PIN.
+                </p>
+
+                <form @submit.prevent="submitResetPin" class="mt-5 space-y-4">
+                    <div>
+                        <InputLabel for="reset_member_pin" value="PIN Portal Baru (6 Digit Angka) *" />
+                        <TextInput
+                            id="reset_member_pin"
+                            v-model="resetPinForm.pin"
+                            type="password"
+                            inputmode="numeric"
+                            maxlength="6"
+                            pattern="\d{6}"
+                            autocomplete="new-password"
+                            class="kopdes-num mt-1 block w-full text-center text-lg font-bold tracking-[0.4em]"
+                            placeholder="••••••"
+                            required
+                        />
+                        <InputError class="mt-1.5" :message="resetPinForm.errors.pin" />
+                    </div>
+
+                    <div>
+                        <InputLabel for="reset_member_pin_confirmation" value="Konfirmasi PIN Baru *" />
+                        <TextInput
+                            id="reset_member_pin_confirmation"
+                            v-model="resetPinForm.pin_confirmation"
+                            type="password"
+                            inputmode="numeric"
+                            maxlength="6"
+                            pattern="\d{6}"
+                            autocomplete="new-password"
+                            class="kopdes-num mt-1 block w-full text-center text-lg font-bold tracking-[0.4em]"
+                            placeholder="••••••"
+                            required
+                        />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
+                        <SecondaryButton type="button" @click="closeResetPinModal">
+                            Batal
+                        </SecondaryButton>
+                        <PrimaryButton :disabled="resetPinForm.processing">
+                            {{ resetPinForm.processing ? 'Menyimpan...' : 'Simpan PIN Portal' }}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </div>
+        </Modal>
+
+        <ImportExcelModal
+            :show="showImportModal"
+            type="members"
+            title="Import Massal Anggota (Member) KOPDES"
+            description="Kolom card_uid bersifat opsional (boleh kosong untuk di-binding RFID nanti). Validasi all-or-nothing."
+            :branches="branches"
+            :require-branch-selection="Boolean(permissions.is_admin_nasional)"
+            :default-branch-id="filterForm.home_branch_id || branches?.[0]?.id || ''"
+            @close="showImportModal = false"
         />
     </AuthenticatedLayout>
 </template>

@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\EnsureRole::class,
             'pos.unlocked' => \App\Http\Middleware\EnsurePosUnlocked::class,
             'pos.shift' => \App\Http\Middleware\EnsureActiveShift::class,
+            'auth.member' => \App\Http\Middleware\EnsureMemberAuthenticated::class,
+            'guest.member' => \App\Http\Middleware\RedirectIfMemberAuthenticated::class,
+            'demo.mode' => \App\Http\Middleware\EnsureDemoModeEnabled::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

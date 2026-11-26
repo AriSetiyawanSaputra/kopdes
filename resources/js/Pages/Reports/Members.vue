@@ -65,6 +65,10 @@ const financials = computed(() => ({
     total_member_discount: Number(
         props.shuFinancials.total_member_discount ?? props.summary.total_member_discount ?? 0,
     ),
+    member_usaha_pool: Number(
+        props.shuFinancials.member_usaha_pool ?? props.shuFinancials.shu_basis ?? props.summary.net_profit ?? 0,
+    ),
+    shu_allocations: props.shuFinancials.shu_allocations ?? null,
 }));
 
 const totalEstimatedShu = computed(() =>
@@ -392,6 +396,45 @@ const exportUrl = (format) => {
                             >
                                 {{ formatRupiah(financials.net_profit) }}
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Rincian 4 Pos Alokasi SHU Dinamis (dari Pengaturan Sistem) -->
+                    <div
+                        v-if="financials.shu_allocations"
+                        class="mt-3 grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-3 sm:grid-cols-4"
+                    >
+                        <div class="rounded-lg bg-kopdes-50/70 px-3 py-2 text-xs">
+                            <span class="font-semibold text-kopdes-900">
+                                Jasa Usaha Anggota ({{ Number(financials.shu_allocations.member_usaha?.percent || 0).toFixed(0) }}%)
+                            </span>
+                            <div class="kopdes-num mt-0.5 font-extrabold text-kopdes-700">
+                                {{ formatRupiah(financials.shu_allocations.member_usaha?.amount) }}
+                            </div>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                            <span class="font-semibold text-slate-700">
+                                Dana Cadangan ({{ Number(financials.shu_allocations.reserve?.percent || 0).toFixed(0) }}%)
+                            </span>
+                            <div class="kopdes-num mt-0.5 font-bold text-slate-900">
+                                {{ formatRupiah(financials.shu_allocations.reserve?.amount) }}
+                            </div>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                            <span class="font-semibold text-slate-700">
+                                Dana Pengurus ({{ Number(financials.shu_allocations.management?.percent || 0).toFixed(0) }}%)
+                            </span>
+                            <div class="kopdes-num mt-0.5 font-bold text-slate-900">
+                                {{ formatRupiah(financials.shu_allocations.management?.amount) }}
+                            </div>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                            <span class="font-semibold text-slate-700">
+                                Pendidikan &amp; Sosial ({{ Number(financials.shu_allocations.education?.percent || 0).toFixed(0) }}%)
+                            </span>
+                            <div class="kopdes-num mt-0.5 font-bold text-slate-900">
+                                {{ formatRupiah(financials.shu_allocations.education?.amount) }}
+                            </div>
                         </div>
                     </div>
                 </section>

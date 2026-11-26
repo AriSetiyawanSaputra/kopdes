@@ -1,6 +1,7 @@
 <script setup>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ImportExcelModal from '@/Components/ImportExcelModal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -30,6 +31,8 @@ const filterForm = reactive({
     category_id: props.filters.category_id ?? '',
     status: props.filters.status ?? '',
 });
+
+const showImportModal = ref(false);
 
 const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -91,19 +94,34 @@ const deleteProduct = (product) => {
                     </p>
                 </div>
 
-                <div v-if="permissions.can_manage" class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <Link
-                        :href="route('categories.index')"
+                        :href="route('products.barcode-labels')"
                         class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                     >
-                        Kelola Kategori
+                        Cetak Label Barcode
                     </Link>
-                    <Link
-                        :href="route('products.create')"
-                        class="inline-flex items-center rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800"
-                    >
-                        + Tambah Produk Global
-                    </Link>
+                    <template v-if="permissions.can_manage">
+                        <button
+                            type="button"
+                            @click="showImportModal = true"
+                            class="btn-kopdes-emerald !py-2"
+                        >
+                            Import Excel/CSV
+                        </button>
+                        <Link
+                            :href="route('categories.index')"
+                            class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                        >
+                            Kelola Kategori
+                        </Link>
+                        <Link
+                            :href="route('products.create')"
+                            class="inline-flex items-center rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800"
+                        >
+                            + Tambah Produk Global
+                        </Link>
+                    </template>
                 </div>
             </div>
         </template>
@@ -308,5 +326,13 @@ const deleteProduct = (product) => {
                 </div>
             </div>
         </div>
+
+        <ImportExcelModal
+            :show="showImportModal"
+            type="products"
+            title="Import Massal Master Produk Global"
+            description="Tambahkan banyak produk sekaligus ke katalog nasional (validasi all-or-nothing, maks 2.000 baris)."
+            @close="showImportModal = false"
+        />
     </AuthenticatedLayout>
 </template>

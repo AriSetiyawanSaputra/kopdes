@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class FinancialReportService
 {
+    public function __construct(
+        private readonly AppSettingService $appSettingService,
+    ) {}
     /**
      * Compute hierarchical dashboard KPIs with Phase 2 return correction:
      * Omzet Bruto -> (-) Retur -> Omzet Bersih -> (-) HPP Bersih (HPP Bruto - HPP Restock) ->
@@ -232,6 +235,26 @@ class FinancialReportService
             $this->sumOperationalExpenses($actor, $filters)
         );
         $distributableShuBasis = max(0.0, (float) $shuMetrics['net_profit']);
+        $allocPercents = $this->appSettingService->shuAllocations();
+        $memberUsahaPool = round($distributableShuBasis * ($allocPercents['member_usaha'] / 100), 2);
+        $shuAllocations = [
+            'member_usaha' => [
+                'percent' => $allocPercents['member_usaha'],
+                'amount' => $memberUsahaPool,
+            ],
+            'reserve' => [
+                'percent' => $allocPercents['reserve'],
+                'amount' => round($distributableShuBasis * ($allocPercents['reserve'] / 100), 2),
+            ],
+            'management' => [
+                'percent' => $allocPercents['management'],
+                'amount' => round($distributableShuBasis * ($allocPercents['management'] / 100), 2),
+            ],
+            'education' => [
+                'percent' => $allocPercents['education'],
+                'amount' => round($distributableShuBasis * ($allocPercents['education'] / 100), 2),
+            ],
+        ];
 
         $membersQuery = Member::forUser($actor)
             ->with(['homeBranch:id,code,name,regency_id,province_id'])
@@ -370,13 +393,13 @@ class FinancialReportService
                 'total_spend' => $totalSpend,
             ];
         })
-            ->map(function (array $row) use ($totalAccumulatedSpend, $distributableShuBasis) {
+            ->map(function (array $row) use ($totalAccumulatedSpend, $memberUsahaPool) {
                 $sharePercent = $totalAccumulatedSpend > 0
                     ? round(($row['total_spend'] / $totalAccumulatedSpend) * 100, 2)
                     : 0.0;
 
-                $estimatedShuShare = ($totalAccumulatedSpend > 0 && $distributableShuBasis > 0)
-                    ? round(($row['total_spend'] / $totalAccumulatedSpend) * $distributableShuBasis, 2)
+                $estimatedShuShare = ($totalAccumulatedSpend > 0 && $memberUsahaPool > 0)
+                    ? round(($row['total_spend'] / $totalAccumulatedSpend) * $memberUsahaPool, 2)
                     : 0.0;
 
                 return array_merge($row, [
@@ -404,6 +427,8 @@ class FinancialReportService
             'net_margin_percentage' => $shuMetrics['net_margin_percentage'],
             'total_member_discount' => $shuMetrics['total_member_discount'],
             'shu_basis' => $distributableShuBasis,
+            'member_usaha_pool' => $memberUsahaPool,
+            'shu_allocations' => $shuAllocations,
         ];
 
         return [
@@ -420,6 +445,59 @@ class FinancialReportService
             'shu_financials' => $shuFinancials,
             'members' => $rows,
         ];
+    }
+
+    /**
+     * Compute post-return financial summary metrics and SHU allocation settings for a single branch
+     * over an explicit [startAt, endAt] period (used by MemberPortalService for 100% formula consistency).
+     *
+     * @return array<string, mixed>
+     */
+    public function getBranchFinancialMetricsForPeriod(int $branchId, Carbon $startAt, Carbon $endAt): array
+    {
+        $paidQuery = Transaction::query()
+            ->where('transactions.branch_id', $branchId)
+            ->where('transactions.payment_status', 'paid')
+            ->whereBetween('transactions.paid_at', [$startAt, $endAt]);
+
+        $returnsQuery = TransactionReturn::query()
+            ->where('transaction_returns.branch_id', $branchId)
+            ->where('transaction_returns.status', TransactionReturn::STATUS_COMPLETED)
+            ->whereBetween('transaction_returns.returned_at', [$startAt, $endAt]);
+
+        $totalOperationalExpenses = round((float) OperationalExpense::query()
+            ->where('operational_expenses.branch_id', $branchId)
+            ->whereDate('operational_expenses.expense_date', '>=', $startAt->toDateString())
+            ->whereDate('operational_expenses.expense_date', '<=', $endAt->toDateString())
+            ->sum('operational_expenses.amount'), 2);
+
+        $metrics = $this->buildFinancialMetrics($paidQuery, $returnsQuery, $totalOperationalExpenses);
+        $distributableShuBasis = max(0.0, (float) $metrics['net_profit']);
+        $allocPercents = $this->appSettingService->shuAllocations();
+
+        return array_merge($metrics, [
+            'shu_basis' => $distributableShuBasis,
+            'member_usaha_percent' => $allocPercents['member_usaha'],
+            'member_usaha_pool' => round($distributableShuBasis * ($allocPercents['member_usaha'] / 100), 2),
+            'shu_allocations' => [
+                'member_usaha' => [
+                    'percent' => $allocPercents['member_usaha'],
+                    'amount' => round($distributableShuBasis * ($allocPercents['member_usaha'] / 100), 2),
+                ],
+                'reserve' => [
+                    'percent' => $allocPercents['reserve'],
+                    'amount' => round($distributableShuBasis * ($allocPercents['reserve'] / 100), 2),
+                ],
+                'management' => [
+                    'percent' => $allocPercents['management'],
+                    'amount' => round($distributableShuBasis * ($allocPercents['management'] / 100), 2),
+                ],
+                'education' => [
+                    'percent' => $allocPercents['education'],
+                    'amount' => round($distributableShuBasis * ($allocPercents['education'] / 100), 2),
+                ],
+            ],
+        ]);
     }
 
     /**

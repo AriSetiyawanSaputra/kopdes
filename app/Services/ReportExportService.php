@@ -205,7 +205,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet1,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'LAPORAN PENJUALAN & LABA RUGI PASCA-RETUR PER CABANG (OMZET BERSIH, HPP BERSIH, BIAYA OPS & LABA BERSIH)',
             $colCount1
         );
@@ -417,7 +417,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet2,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'DAFTAR RINCIAN TRANSAKSI LUNAS (PAID) BERBASIS SNAPSHOT HPP & HEMAT MEMBER',
             15
         );
@@ -574,7 +574,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet1,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'LAPORAN BIAYA OPERASIONAL CABANG — REKAPITULASI SUBTOTAL PER KATEGORI',
             9
         );
@@ -697,7 +697,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet2,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'DAFTAR RINCIAN TRANSAKSI BIAYA OPERASIONAL CABANG',
             9
         );
@@ -815,7 +815,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'LAPORAN SISA HASIL USAHA (SHU) & REKAP BELANJA ANGGOTA (BASIS LABA BERSIH)',
             $colCount
         );
@@ -1104,7 +1104,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'LAPORAN RIWAYAT & REKONSILIASI SHIFT KASIR POS (BLIND COUNT)',
             $colCount
         );
@@ -1286,7 +1286,7 @@ class ReportExportService
 
         $this->applyHeaderBanner(
             $sheet,
-            'KOPERASI DESA MERAH PUTIH (KOPDES)',
+            strtoupper($meta['institution_name']),
             'LAPORAN RIWAYAT RETUR PARSIAL & FULL VOID TRANSAKSI CABANG',
             $colCount
         );
@@ -1497,7 +1497,13 @@ class ReportExportService
             default => ucfirst(str_replace('_', ' ', (string) $actor->role)),
         };
 
+        $publicSettings = app(AppSettingService::class)->publicConfig();
+        $logoDataUri = app(AppSettingService::class)->logoDataUri();
+
         return [
+            'institution_name' => $publicSettings['institution_name'],
+            'institution_logo_data_uri' => $logoDataUri,
+            'receipt_footer' => $publicSettings['receipt_footer'],
             'period_label' => "{$startFormatted} s.d. {$endFormatted}",
             'region_label' => $regionLabel,
             'payment_method_label' => $paymentMethodLabel,

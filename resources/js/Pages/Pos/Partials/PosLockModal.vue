@@ -79,6 +79,7 @@ watch(
             focusCardInput();
         }
     },
+    { immediate: true },
 );
 
 const onCardEnter = () => {

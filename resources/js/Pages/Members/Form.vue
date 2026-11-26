@@ -41,6 +41,7 @@ const form = useForm({
     phone: props.member?.phone ?? '',
     nik: props.member?.nik ?? '',
     status: props.member?.status ?? 'active',
+    pin: '',
     joined_at: props.member?.joined_at ?? todayDate,
 });
 
@@ -146,11 +147,11 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.name" />
                         </div>
 
-                        <!-- Binding Kartu RFID Member -->
+                        <!-- Binding Kartu RFID Member (Opsional) -->
                         <div class="rounded-md border border-blue-200 bg-blue-50/50 p-4">
                             <InputLabel
                                 for="card_uid"
-                                value="UID Kartu RFID Anggota (Berlaku Nasional) *"
+                                value="UID Kartu RFID Anggota (Opsional — dapat dipasang nanti)"
                             />
                             <div class="mt-1 flex gap-2">
                                 <TextInput
@@ -158,8 +159,7 @@ const submit = () => {
                                     v-model="form.card_uid"
                                     type="text"
                                     class="block w-full font-mono uppercase"
-                                    placeholder="Klik tombol Scan Kartu Member..."
-                                    required
+                                    placeholder="Kosongkan jika belum ada kartu fisik, atau klik Scan..."
                                 />
                                 <SecondaryButton
                                     type="button"
@@ -170,7 +170,7 @@ const submit = () => {
                                 </SecondaryButton>
                             </div>
                             <p class="mt-1 text-xs text-gray-500">
-                                UID kartu otomatis dinormalisasi (huruf kapital alfanumerik) dan dijamin unik lintas tabel Kasir &amp; Member.
+                                Jika diisi, UID kartu otomatis dinormalisasi (huruf kapital alfanumerik) dan dijamin unik lintas Kasir &amp; Member.
                             </p>
                             <InputError class="mt-2" :message="form.errors.card_uid" />
                         </div>
@@ -216,6 +216,32 @@ const submit = () => {
                                 </select>
                                 <InputError class="mt-2" :message="form.errors.status" />
                             </div>
+                        </div>
+
+                        <!-- PIN Portal Member Awal (Opsional, khusus saat registrasi baru) -->
+                        <div
+                            v-if="!isEdit"
+                            class="rounded-md border border-emerald-200 bg-emerald-50/50 p-4"
+                        >
+                            <InputLabel
+                                for="pin"
+                                value="PIN Portal Member 6 Digit (Opsional — untuk login Portal Mandiri)"
+                            />
+                            <TextInput
+                                id="pin"
+                                v-model="form.pin"
+                                type="password"
+                                inputmode="numeric"
+                                maxlength="6"
+                                pattern="\d{6}"
+                                autocomplete="new-password"
+                                class="kopdes-num mt-1 block w-full max-w-xs text-center text-base font-bold tracking-[0.4em]"
+                                placeholder="••••••"
+                            />
+                            <p class="mt-1 text-xs text-slate-600">
+                                Kosongkan jika belum ingin mengaktifkan akses Portal Member; PIN dapat diatur/direset kapan saja dari daftar Member.
+                            </p>
+                            <InputError class="mt-2" :message="form.errors.pin" />
                         </div>
 
                         <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">

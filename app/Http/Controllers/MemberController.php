@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReplaceMemberCardRequest;
+use App\Http\Requests\ResetMemberPinRequest;
 use App\Http\Requests\StoreMemberRequest;
 use App\Http\Requests\UpdateMemberRequest;
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Member;
+use App\Services\ActivityLogService;
 use App\Services\MemberService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +21,7 @@ class MemberController extends Controller
 {
     public function __construct(
         private readonly MemberService $memberService,
+        private readonly ActivityLogService $activityLogService,
     ) {}
 
     /**
@@ -69,6 +73,7 @@ class MemberController extends Controller
             'phone' => $member->phone,
             'nik' => $member->nik,
             'status' => $member->status,
+            'has_portal_pin' => ! empty($member->pin_hash),
             'joined_at' => $member->joined_at?->format('Y-m-d'),
             'home_branch' => $member->homeBranch,
             'can_update' => $actor->can('update', $member),
@@ -88,6 +93,7 @@ class MemberController extends Controller
             ],
             'permissions' => [
                 'can_create' => $actor->can('create', Member::class),
+                'is_admin_nasional' => $actor->isAdminNasional(),
             ],
         ]);
     }
@@ -173,7 +179,17 @@ class MemberController extends Controller
      */
     public function replaceCard(ReplaceMemberCardRequest $request, Member $member): RedirectResponse
     {
+        $oldCardUid = $member->card_uid;
         $updated = $this->memberService->replaceCard($member, (string) $request->validated('card_uid'));
+
+        $this->activityLogService->record(
+            action: ActivityLog::ACTION_MEMBER_CARD_REPLACED,
+            description: "Mengganti kartu RFID member {$updated->name} ({$updated->member_code})",
+            actor: $request->user(),
+            subject: $updated,
+            oldValues: ['card_uid' => $oldCardUid],
+            newValues: ['card_uid' => $updated->card_uid],
+        );
 
         return redirect()
             ->back()
@@ -187,11 +203,45 @@ class MemberController extends Controller
     {
         Gate::authorize('update', $member);
 
+        $oldStatus = $member->status;
         $updated = $this->memberService->toggleStatus($member);
         $statusLabel = $updated->status === 'active' ? 'diaktifkan' : 'dinonaktifkan';
+
+        $this->activityLogService->record(
+            action: ActivityLog::ACTION_MEMBER_STATUS_TOGGLED,
+            description: "Status member {$updated->name} ({$updated->member_code}) {$statusLabel}",
+            actor: $request->user(),
+            subject: $updated,
+            oldValues: ['status' => $oldStatus],
+            newValues: ['status' => $updated->status],
+        );
 
         return redirect()
             ->back()
             ->with('success', "Kartu member {$updated->name} ({$updated->member_code}) berhasil {$statusLabel}.");
+    }
+
+    /**
+     * Set or reset a member's 6-digit Portal Member PIN (FR-P3-09).
+     * Never stores raw PIN values in activity_logs.
+     */
+    public function resetPin(ResetMemberPinRequest $request, Member $member): RedirectResponse
+    {
+        $hadPinBefore = ! empty($member->pin_hash);
+        $updated = $this->memberService->resetPin($member, (string) $request->validated('pin'));
+        $verb = $hadPinBefore ? 'direset' : 'diatur';
+
+        $this->activityLogService->record(
+            action: ActivityLog::ACTION_MEMBER_PIN_RESET,
+            description: "PIN Portal Member {$updated->name} ({$updated->member_code}) {$verb}",
+            actor: $request->user(),
+            subject: $updated,
+            oldValues: ['has_portal_pin' => $hadPinBefore],
+            newValues: ['has_portal_pin' => true],
+        );
+
+        return redirect()
+            ->back()
+            ->with('success', "PIN Portal Member {$updated->name} ({$updated->member_code}) berhasil {$verb}.");
     }
 }

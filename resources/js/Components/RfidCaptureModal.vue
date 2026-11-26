@@ -4,6 +4,7 @@ import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { normalizeCardUid } from '@/Utils/normalizeCardUid';
+import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     show: {
@@ -38,6 +39,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'captured']);
+
+const page = usePage();
+const isDemoMode = computed(() => Boolean(page.props.app?.demo_mode));
 
 const rawInput = ref('');
 const localError = ref('');
@@ -146,6 +150,17 @@ const onInputChange = () => {
     }
 };
 
+const simulateTapNewCard = () => {
+    if (props.loading) {
+        return;
+    }
+
+    const randomPart = Math.floor(100000 + Math.random() * 900000).toString();
+    const timePart = Date.now().toString().slice(-4);
+    rawInput.value = normalizeCardUid(`DEMO${timePart}${randomPart}`);
+    scheduleDebouncedCapture();
+};
+
 const handleClose = () => {
     if (props.loading) {
         return;
@@ -219,6 +234,21 @@ onBeforeUnmount(() => {
                     <span class="font-mono font-bold text-gray-900">
                         {{ normalizedPreview || '-' }}
                     </span>
+                </div>
+
+                <!-- Tombol Simulasi Tap Kartu Baru (Hanya saat APP_DEMO_MODE=true) -->
+                <div v-if="isDemoMode" class="mt-3 border-t border-red-200/70 pt-3">
+                    <button
+                        type="button"
+                        :disabled="loading"
+                        @click.stop="simulateTapNewCard"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-200 disabled:opacity-50"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>Simulasi Tap Kartu Baru (Mode Demo)</span>
+                    </button>
                 </div>
             </div>
 

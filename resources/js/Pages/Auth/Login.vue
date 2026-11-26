@@ -1,10 +1,10 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 
 defineProps({
     canResetPassword: {
@@ -15,13 +15,28 @@ defineProps({
     },
 });
 
+const page = usePage();
+const isDemoMode = computed(() => Boolean(page.props.app?.demo_mode));
 const showPassword = ref(false);
+
+const demoAdminAccounts = [
+    { label: 'Admin Nasional', sub: 'Seluruh Indonesia', email: 'admin.nasional@kopdes.id', password: 'password' },
+    { label: 'Admin Prov. Jatim', sub: 'Scope Jawa Timur', email: 'admin.jatim@kopdes.id', password: 'password' },
+    { label: 'Admin Kab. Ponorogo', sub: 'Scope Kab. Ponorogo', email: 'admin.ponorogo@kopdes.id', password: 'password' },
+    { label: 'Admin Cabang Ngunut', sub: 'KOPDES Desa Ngunut', email: 'admin.ngunut@kopdes.id', password: 'password' },
+];
 
 const form = useForm({
     email: '',
     password: '',
     remember: false,
 });
+
+const fillDemoAccount = (account) => {
+    form.clearErrors();
+    form.email = account.email;
+    form.password = account.password;
+};
 
 const hasPosLoginRoute = () => {
     try {
@@ -42,26 +57,36 @@ const submit = () => {
     <GuestLayout>
         <Head title="Login Admin — KOPDES Merah Putih" />
 
-        <!-- Dual-Mode Auth Switcher -->
-        <div class="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+        <!-- Tri-Mode Auth Switcher -->
+        <div class="mb-6 grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
             <span
-                class="flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-kopdes-700 shadow-sm ring-1 ring-slate-200/80"
+                class="flex items-center justify-center gap-1 rounded-lg bg-white px-2 py-2 text-[11px] font-bold text-kopdes-700 shadow-sm ring-1 ring-slate-200/80"
                 aria-current="page"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Admin Dashboard
+                <span>Admin</span>
             </span>
 
             <Link
                 :href="hasPosLoginRoute() ? route('pos.login') : '/pos/login'"
-                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
+                class="flex cursor-pointer items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
-                Kasir POS (RFID)
+                <span>Kasir POS</span>
+            </Link>
+
+            <Link
+                :href="route().has('member.login') ? route('member.login') : '/member/login'"
+                class="flex cursor-pointer items-center justify-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-white/60 hover:text-slate-900"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
+                </svg>
+                <span>Member</span>
             </Link>
         </div>
 
@@ -191,6 +216,36 @@ const submit = () => {
                 </PrimaryButton>
             </div>
         </form>
+
+        <!-- Panel Quick-Fill Mode Demo Portofolio (Hanya saat APP_DEMO_MODE=true) -->
+        <div
+            v-if="isDemoMode"
+            class="mt-5 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5"
+        >
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+                    Mode Demo Portofolio — Quick-Fill Admin
+                </span>
+                <span class="rounded bg-amber-200/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                    1-Klik Isi Form
+                </span>
+            </div>
+            <p class="mt-1 text-[11px] text-amber-800">
+                Pilih peran untuk mengisi email &amp; kata sandi demo secara otomatis, lalu klik tombol Masuk.
+            </p>
+            <div class="mt-2.5 grid grid-cols-2 gap-1.5">
+                <button
+                    v-for="acc in demoAdminAccounts"
+                    :key="acc.email"
+                    type="button"
+                    @click="fillDemoAccount(acc)"
+                    class="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-left transition hover:border-kopdes-400 hover:bg-kopdes-50"
+                >
+                    <div class="text-[11px] font-bold text-slate-900">{{ acc.label }}</div>
+                    <div class="truncate text-[10px] text-slate-500">{{ acc.sub }}</div>
+                </button>
+            </div>
+        </div>
 
         <!-- Security Notice -->
         <div class="mt-6 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-600">

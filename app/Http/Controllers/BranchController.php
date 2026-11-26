@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Province;
 use App\Models\Regency;
+use App\Services\ActivityLogService;
 use App\Services\BranchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +20,7 @@ class BranchController extends Controller
 {
     public function __construct(
         private readonly BranchService $branchService,
+        private readonly ActivityLogService $activityLogService,
     ) {}
 
     /**
@@ -215,8 +218,18 @@ class BranchController extends Controller
     {
         Gate::authorize('toggleActive', $branch);
 
+        $oldActive = (bool) $branch->is_active;
         $updated = $this->branchService->toggleActive($branch);
         $statusText = $updated->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        $this->activityLogService->record(
+            action: ActivityLog::ACTION_BRANCH_STATUS_TOGGLED,
+            description: "Cabang {$updated->name} ({$updated->code}) {$statusText}",
+            actor: $request->user(),
+            subject: $updated,
+            oldValues: ['is_active' => $oldActive],
+            newValues: ['is_active' => (bool) $updated->is_active],
+        );
 
         return redirect()
             ->back()

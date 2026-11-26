@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\ActivityLog;
+use App\Models\AppSetting;
 use App\Models\Branch;
 use App\Models\BranchStock;
 use App\Models\CashierShift;
@@ -10,6 +12,8 @@ use App\Models\OperationalExpense;
 use App\Models\StockMovement;
 use App\Models\TransactionReturn;
 use App\Models\User;
+use App\Policies\ActivityLogPolicy;
+use App\Policies\AppSettingPolicy;
 use App\Policies\BranchPolicy;
 use App\Policies\CashierShiftPolicy;
 use App\Policies\MemberPolicy;
@@ -47,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(OperationalExpense::class, OperationalExpensePolicy::class);
         Gate::policy(CashierShift::class, CashierShiftPolicy::class);
         Gate::policy(TransactionReturn::class, TransactionReturnPolicy::class);
+        Gate::policy(AppSetting::class, AppSettingPolicy::class);
+        Gate::policy(ActivityLog::class, ActivityLogPolicy::class);
 
         Gate::define('view-dashboard', [ReportPolicy::class, 'viewDashboard']);
         Gate::define('view-sales-report', [ReportPolicy::class, 'viewSalesReport']);

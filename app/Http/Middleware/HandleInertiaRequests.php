@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AppSettingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -29,13 +30,20 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        $user = $request->user('web');
+        $member = $request->user('member');
 
         if ($user) {
             $user->loadMissing([
                 'province:id,name',
                 'regency:id,name',
                 'branch:id,code,name,village_id,district_id,regency_id,province_id,address,phone,is_active',
+            ]);
+        }
+
+        if ($member) {
+            $member->loadMissing([
+                'homeBranch:id,code,name',
             ]);
         }
 
@@ -72,6 +80,18 @@ class HandleInertiaRequests extends Middleware
                         'is_active' => (bool) $user->branch->is_active,
                     ] : null,
                 ] : null,
+                'member' => $member ? [
+                    'id' => $member->id,
+                    'member_code' => $member->member_code,
+                    'name' => $member->name,
+                    'phone' => $member->phone,
+                    'home_branch_id' => $member->home_branch_id,
+                    'home_branch_name' => $member->homeBranch?->name,
+                    'home_branch_code' => $member->homeBranch?->code,
+                    'has_rfid_card' => (bool) $member->has_rfid_card,
+                    'status' => $member->status,
+                    'joined_at' => $member->joined_at?->format('Y-m-d'),
+                ] : null,
                 'pos_locked' => (bool) $request->session()->get('pos_locked', false),
             ],
             'flash' => [
@@ -79,6 +99,10 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'warning' => fn () => $request->session()->get('warning'),
                 'info' => fn () => $request->session()->get('info'),
+            ],
+            'app_settings' => fn () => app(AppSettingService::class)->publicConfig(),
+            'app' => [
+                'demo_mode' => (bool) config('kopdes.demo_mode', false),
             ],
         ];
     }

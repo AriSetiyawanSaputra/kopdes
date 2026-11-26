@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\User;
 use App\Support\CardUidNormalizer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class MemberService
 {
@@ -25,14 +26,20 @@ class MemberService
             $branch = Branch::findOrFail($branchId);
             $memberCode = $this->generateMemberCode($branch);
 
+            $rawCard = isset($data['card_uid']) && is_scalar($data['card_uid'])
+                ? trim((string) $data['card_uid'])
+                : '';
+            $normalizedCard = $rawCard !== '' ? CardUidNormalizer::normalize($rawCard) : '';
+
             return Member::create([
                 'member_code' => $memberCode,
                 'home_branch_id' => $branch->id,
-                'card_uid' => CardUidNormalizer::normalize((string) $data['card_uid']),
+                'card_uid' => $normalizedCard !== '' ? $normalizedCard : null,
                 'name' => trim((string) $data['name']),
                 'phone' => ! empty($data['phone']) ? trim((string) $data['phone']) : null,
                 'nik' => ! empty($data['nik']) ? trim((string) $data['nik']) : null,
                 'status' => $data['status'] ?? 'active',
+                'pin_hash' => ! empty($data['pin']) ? Hash::make((string) $data['pin']) : null,
                 'joined_at' => ! empty($data['joined_at']) ? $data['joined_at'] : now()->toDateString(),
             ]);
         });
@@ -50,9 +57,14 @@ class MemberService
                 ? (int) $actor->branch_id
                 : (int) ($data['home_branch_id'] ?? $member->home_branch_id);
 
+            $rawCard = isset($data['card_uid']) && is_scalar($data['card_uid'])
+                ? trim((string) $data['card_uid'])
+                : '';
+            $normalizedCard = $rawCard !== '' ? CardUidNormalizer::normalize($rawCard) : '';
+
             $member->update([
                 'home_branch_id' => $branchId,
-                'card_uid' => CardUidNormalizer::normalize((string) $data['card_uid']),
+                'card_uid' => $normalizedCard !== '' ? $normalizedCard : null,
                 'name' => trim((string) $data['name']),
                 'phone' => ! empty($data['phone']) ? trim((string) $data['phone']) : null,
                 'nik' => ! empty($data['nik']) ? trim((string) $data['nik']) : null,
@@ -71,6 +83,18 @@ class MemberService
     {
         $member->update([
             'card_uid' => CardUidNormalizer::normalize($rawCardUid),
+        ]);
+
+        return $member->refresh();
+    }
+
+    /**
+     * Set or reset a member's 6-digit Portal Member PIN (hashed with Hash::make).
+     */
+    public function resetPin(Member $member, string $pin): Member
+    {
+        $member->update([
+            'pin_hash' => Hash::make($pin),
         ]);
 
         return $member->refresh();
