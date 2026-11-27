@@ -1,12 +1,13 @@
 # KOPDES — Sistem Kasir & Manajemen Koperasi Desa Merah Putih
 
+[![KOPDES CI](https://github.com/AriSetiyawanSaputra/kopdes/actions/workflows/ci.yml/badge.svg)](https://github.com/AriSetiyawanSaputra/kopdes/actions/workflows/ci.yml)
 [![Laravel 13](https://img.shields.io/badge/Laravel-13.x-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Vue 3](https://img.shields.io/badge/Vue.js-3%20Composition%20API-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org)
 [![Inertia.js](https://img.shields.io/badge/Inertia.js-2.x-9553E9?style=flat-square&logo=inertia&logoColor=white)](https://inertiajs.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![MySQL 8.0](https://img.shields.io/badge/MySQL-8.0%20InnoDB-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com)
-[![Tests](https://img.shields.io/badge/Tests-106%20Passed%20(1.308%20Assertions)-16A34A?style=flat-square)]()
-[![Security Audit](https://img.shields.io/badge/Security_Audit-98%2F100%20(18%2F18%20Resolved)-B91C1C?style=flat-square)](./SECURITY_AUDIT_REPORT.md)
+![Tests](https://img.shields.io/badge/Tests-106%20Passed%20%281.308%20Assertions%29-16A34A?style=flat-square)
+[![Security Audit](https://img.shields.io/badge/Security_Audit-98%2F100%20%2818%2F18%20Resolved%29-B91C1C?style=flat-square)](./SECURITY_AUDIT_REPORT.md)
 
 Aplikasi web *full-stack* berskala nasional-hingga-desa untuk operasional **Koperasi Desa (KOPDES) Merah Putih**. Dirancang dengan arsitektur *multi-branch* hierarkis (**Nasional → Provinsi → Kabupaten → Cabang Desa**), Point of Sale (POS) terintegrasi USB Barcode Scanner & RFID Reader, pembayaran **Midtrans Snap**, manajemen Shift Kasir *Blind Count*, Retur/Void terpusat, Laporan Laba Rugi & SHU (Excel/PDF), Pengaturan Sistem Dinamis & Audit Trail, Onboarding Massal Excel/CSV, Cetak Barcode & Kartu Member, **Portal Mandiri Member** (*mobile-first*), serta **Mode Demo Portofolio** lengkap dengan Simulator Hardware dan auto-reset harian.
 
@@ -28,32 +29,32 @@ Aplikasi web *full-stack* berskala nasional-hingga-desa untuk operasional **Kope
 
 ```mermaid
 flowchart TB
-    subgraph Clients["Antarmuka Klien (Inertia.js + Vue 3 <script setup> + Tailwind CSS)"]
-        AdminUI["Dashboard Admin & Backoffice\n(Nasional / Provinsi / Kabupaten / Cabang)"]
-        PosUI["Layar POS Kasir\n(USB Barcode, RFID, F2/F9/F12, Thermal 58/80mm)"]
-        MemberUI["Portal Mandiri Member\n(Mobile-First, Kartu Digital QR, Struk & SHU)"]
+    subgraph Clients["Antarmuka Klien (Inertia.js + Vue 3 Composition API + Tailwind CSS)"]
+        AdminUI["Dashboard Admin & Backoffice<br/>(Nasional / Provinsi / Kabupaten / Cabang)"]
+        PosUI["Layar POS Kasir<br/>(USB Barcode, RFID, F2/F9/F12, Thermal 58/80mm)"]
+        MemberUI["Portal Mandiri Member<br/>(Mobile-First, Kartu Digital QR, Struk & SHU)"]
     end
 
     subgraph AuthLayer["Keamanan, Dual Auth Guard & RBAC"]
-        WebGuard["Guard: web\n(Admin Email+Password / Kasir RFID+PIN + RateLimiter)"]
-        MemberGuard["Guard: member\n(Kode Member/HP + PIN 6 Digit + RateLimiter)"]
-        RBAC["HasRegionScope + Laravel Policies\n(Anti-IDOR Wilayah & EnsurePosUnlocked)"]
-        SecHeaders["SecurityHeaders Middleware\n(CSP, X-Frame-Options, Referrer-Policy)"]
+        WebGuard["Guard: web<br/>(Admin Email+Password / Kasir RFID+PIN + RateLimiter)"]
+        MemberGuard["Guard: member<br/>(Kode Member/HP + PIN 6 Digit + RateLimiter)"]
+        RBAC["HasRegionScope + Laravel Policies<br/>(Anti-IDOR Wilayah & EnsurePosUnlocked)"]
+        SecHeaders["SecurityHeaders Middleware<br/>(CSP, X-Frame-Options, Referrer-Policy)"]
     end
 
     subgraph Services["Service Layer (Logika Bisnis & Transaksi ACID)"]
-        CheckoutSvc["CheckoutService\n(idempotency_key + lockForUpdate terurut product_id)"]
-        ShiftSvc["CashierShiftService\n(Blind Count, Kas Laci, Force-Close)"]
-        ReturnSvc["TransactionReturnService\n(Parsial/Full Void, Restock vs Rusak)"]
-        MidtransSvc["MidtransService & ReconciliationService\n(Snap Token, Webhook SHA-512 Idempotent)"]
-        ReportSvc["FinancialReportService & ReportExportService\n(Snapshot HPP, SHU 4-Pos, Excel/PDF Aman)"]
-        SystemSvc["AppSettingService, ActivityLogService & BulkImportService\n(Cached Settings, Immutable Audit, All-or-Nothing Import)"]
+        CheckoutSvc["CheckoutService<br/>(idempotency_key + lockForUpdate terurut product_id)"]
+        ShiftSvc["CashierShiftService<br/>(Blind Count, Kas Laci, Force-Close)"]
+        ReturnSvc["TransactionReturnService<br/>(Parsial/Full Void, Restock vs Rusak)"]
+        MidtransSvc["MidtransService & ReconciliationService<br/>(Snap Token, Webhook SHA-512 Idempotent)"]
+        ReportSvc["FinancialReportService & ReportExportService<br/>(Snapshot HPP, SHU 4-Pos, Excel/PDF Aman)"]
+        SystemSvc["AppSettingService, ActivityLogService & BulkImportService<br/>(Cached Settings, Immutable Audit, All-or-Nothing Import)"]
     end
 
     subgraph DataInfra["Infrastruktur Data, Integrasi & Scheduler"]
-        MySQL[("MySQL 8.0 InnoDB\nTransaksi ACID & Row Locking")]
-        MidtransAPI["Midtrans Snap API\n& HTTP Webhook"]
-        Scheduler["Laravel Scheduler\n- Reconcile Expired (5 mnt)\n- Demo Auto-Reset (00:00 WIB)"]
+        MySQL[("MySQL 8.0 InnoDB<br/>Transaksi ACID & Row Locking")]
+        MidtransAPI["Midtrans Snap API<br/>& HTTP Webhook"]
+        Scheduler["Laravel Scheduler<br/>• Reconcile Expired (5 mnt)<br/>• Demo Auto-Reset (00:00 WIB)"]
     end
 
     AdminUI --> WebGuard
@@ -120,11 +121,11 @@ flowchart TB
 Aplikasi telah melalui audit keamanan menyeluruh terhadap seluruh lapisan backend & frontend dengan skor kesiapan **98 / 100** (**18/18 temuan `SEC-01`–`SEC-18` telah dipatch** dan diverifikasi otomatis pada `tests/Feature/SecurityAuditTest.php`). Rincian lengkap tersedia di [SECURITY_AUDIT_REPORT.md](./SECURITY_AUDIT_REPORT.md).
 
 Sorotan pengamanan utama:
-- **Midtrans Webhook Fail-Closed (`SEC-01`):** Menolak mutlak jika `MIDTRANS_SERVER_KEY` kosong, verifikasi `hash_equals()` SHA-512, validasi kesesuaian nominal `gross_amount`, idempotensi `lockForUpdate()`, dan rate limiting `throttle:120,1`.
-- **Dokumen & Ekspor Anti-Eksploitasi (`SEC-02`, `SEC-03`):** DomPDF mengunci `isPhpEnabled = false` dan `isRemoteEnabled = false`; seluruh kolom teks ekspor `.xlsx` disanitasi dari *Excel Formula Injection* (`=`, `+`, `-`, `@`, `\t`, `\r`).
-- **Proteksi Akun Demo & Isolasi Guard (`SEC-04`, `SEC-08`, `SEC-12`):** Mencegah sabotase akun demo (ubah email/password/PIN/hapus akun) saat `APP_DEMO_MODE=true`, memisahkan sesi `web` vs `member`, serta mengunci endpoint POS selama `pos_locked = true`.
-- **Anti-XSS & HTTP Security Headers (`SEC-14`, `SEC-15`, `SEC-17`):** **Zero `v-html`** di seluruh komponen Vue 3 (QR Code dirender aman via `<img :src="qrDataUrl">`, paginasi aman via `AppPagination.vue`), dilengkapi middleware `SecurityHeaders` (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `CSP`).
-- **Rate Limiting & Anti-IDOR (`SEC-05`, `SEC-06`, `SEC-09`):** Perlindungan brute-force PIN (maks 5x gagal -> HTTP `429`), validasi ketat lintas cabang/wilayah pada seluruh endpoint CRUD, Inventory, Shift, Return, dan Bulk Import.
+- **Midtrans Webhook Fail-Closed & Cancel Safety (`SEC-01`, `SEC-07`):** Menolak mutlak jika `MIDTRANS_SERVER_KEY` kosong, verifikasi `hash_equals()` SHA-512, validasi kesesuaian nominal `gross_amount`, idempotensi `lockForUpdate()`, rate limiting `throttle:120,1`, serta pengecekan ulang status ke Midtrans sebelum membatalkan transaksi lokal.
+- **Dokumen, Ekspor & Import Anti-Eksploitasi (`SEC-02`, `SEC-03`, `SEC-09`):** DomPDF mengunci `isPhpEnabled = false` dan `isRemoteEnabled = false`; seluruh kolom teks ekspor `.xlsx` disanitasi dari *Excel Formula Injection* (`=`, `+`, `-`, `@`, `\t`, `\r`); import massal memakai validasi MIME server-side dan `setReadDataOnly(true)` tanpa evaluasi formula.
+- **Proteksi Akun Demo, POS & Blind Count (`SEC-04`, `SEC-05`, `SEC-06`, `SEC-13`):** Membatasi `/profile` khusus admin, mencegah sabotase akun demo saat `APP_DEMO_MODE=true`, menghapus kebocoran HPP/`cashier_shift_id` dari respons POS, serta mengunci endpoint kasir selama `pos_locked = true`.
+- **Anti-XSS, Session Hygiene & Security Headers (`SEC-10`, `SEC-14`, `SEC-15`):** **Zero `v-html`** di seluruh komponen Vue 3 (QR Code dirender via `<img :src="qrDataUrl">`), rotasi sesi pasca-logout guard `member`, serta middleware `SecurityHeaders` (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
+- **Rate Limiting Anti-Enumerasi & Anti-IDOR (`SEC-08`, `SEC-12`):** Perlindungan brute-force PIN (maks 5x gagal -> HTTP `429`) dengan dual-bucket throttle pada Portal Member dan pembatasan ketat lintas wilayah pada seluruh endpoint CRUD, Laporan, Ekspor, dan Activity Log.
 
 ---
 
@@ -138,7 +139,7 @@ Sorotan pengamanan utama:
 ### Langkah Setup
 ```bash
 # 1. Clone repositori & masuk folder proyek
-git clone <url-repositori> kopdes
+git clone https://github.com/AriSetiyawanSaputra/kopdes.git kopdes
 cd kopdes
 
 # 2. Instal dependensi backend & frontend
