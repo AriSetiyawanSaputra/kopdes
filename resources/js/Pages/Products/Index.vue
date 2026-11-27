@@ -4,7 +4,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ImportExcelModal from '@/Components/ImportExcelModal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -84,20 +85,25 @@ const deleteProduct = (product) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h2 class="text-xl font-bold leading-tight text-gray-900">
-                        Katalog Produk Global KOPDES
-                    </h2>
-                    <p class="mt-0.5 text-sm text-gray-500">
-                        Master produk terpusat dengan harga jual seragam nasional (perubahan harga hanya berlaku untuk transaksi baru)
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Katalog Produk Global KOPDES
+                        </h1>
+                        <StatusBadge variant="kopdes" size="xs">
+                            Harga Seragam Nasional
+                        </StatusBadge>
+                    </div>
+                    <p class="mt-0.5 text-sm text-slate-600">
+                        Master produk terpusat (perubahan harga hanya berlaku untuk transaksi baru &bull; Snapshot HPP aman)
                     </p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
                     <Link
                         :href="route('products.barcode-labels')"
-                        class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                        class="btn-kopdes-secondary !px-3.5 !py-2 !text-xs"
                     >
                         Cetak Label Barcode
                     </Link>
@@ -105,19 +111,19 @@ const deleteProduct = (product) => {
                         <button
                             type="button"
                             @click="showImportModal = true"
-                            class="btn-kopdes-emerald !py-2"
+                            class="btn-kopdes-emerald"
                         >
                             Import Excel/CSV
                         </button>
                         <Link
                             :href="route('categories.index')"
-                            class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                            class="btn-kopdes-secondary !px-3.5 !py-2 !text-xs"
                         >
                             Kelola Kategori
                         </Link>
                         <Link
                             :href="route('products.create')"
-                            class="inline-flex items-center rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800"
+                            class="btn-kopdes-primary !px-3.5 !py-2 !text-xs"
                         >
                             + Tambah Produk Global
                         </Link>
@@ -127,33 +133,35 @@ const deleteProduct = (product) => {
         </template>
 
         <div class="py-6">
-            <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                 <!-- Filter Bar -->
-                <div class="rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200">
+                <div class="kopdes-card p-5">
                     <form
                         @submit.prevent="applyFilters"
-                        class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                        class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4"
                     >
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">
+                            <label for="prod-search" class="block text-xs font-semibold text-slate-700">
                                 Cari Nama / SKU / Barcode
                             </label>
-                            <TextInput
+                            <input
+                                id="prod-search"
                                 v-model="filterForm.search"
                                 type="text"
-                                class="mt-1 block w-full text-sm"
+                                class="kopdes-input mt-1"
                                 placeholder="Beras / SKU / 899..."
                             />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">
+                            <label for="prod-category" class="block text-xs font-semibold text-slate-700">
                                 Kategori
                             </label>
                             <select
+                                id="prod-category"
                                 v-model="filterForm.category_id"
                                 @change="applyFilters"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                                class="kopdes-input mt-1 cursor-pointer"
                             >
                                 <option value="">Semua Kategori</option>
                                 <option
@@ -167,13 +175,14 @@ const deleteProduct = (product) => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">
+                            <label for="prod-status" class="block text-xs font-semibold text-slate-700">
                                 Status Penjualan POS
                             </label>
                             <select
+                                id="prod-status"
                                 v-model="filterForm.status"
                                 @change="applyFilters"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                                class="kopdes-input mt-1 cursor-pointer"
                             >
                                 <option value="">Semua Status</option>
                                 <option value="active">Aktif Dijual</option>
@@ -182,16 +191,10 @@ const deleteProduct = (product) => {
                         </div>
 
                         <div class="flex items-end gap-2">
-                            <PrimaryButton
-                                type="submit"
-                                class="bg-red-700 hover:bg-red-800"
-                            >
+                            <PrimaryButton type="submit">
                                 Filter
                             </PrimaryButton>
-                            <SecondaryButton
-                                type="button"
-                                @click="resetFilters"
-                            >
+                            <SecondaryButton type="button" @click="resetFilters">
                                 Reset
                             </SecondaryButton>
                         </div>
@@ -199,130 +202,131 @@ const deleteProduct = (product) => {
                 </div>
 
                 <!-- Products Table -->
-                <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
+                <div class="kopdes-card overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
+                        <h2 class="text-sm font-bold text-slate-900">
+                            Daftar Produk Katalog Nasional
+                        </h2>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ products.length }} Produk</span>
+                        </StatusBadge>
+                    </div>
+                    <div v-if="products.length > 0" class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-slate-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         SKU &amp; Barcode
                                     </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Nama Produk
                                     </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Kategori
                                     </th>
-                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Satuan
                                     </th>
-                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         HPP
                                     </th>
-                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Harga Normal
                                     </th>
-                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Harga Member
                                     </th>
-                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Status
                                     </th>
-                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200 bg-white">
+                            <tbody class="divide-y divide-slate-100 bg-white">
                                 <tr
                                     v-for="product in products"
                                     :key="product.id"
-                                    class="hover:bg-gray-50"
+                                    class="transition-colors hover:bg-slate-50/80"
                                 >
-                                    <td class="whitespace-nowrap px-4 py-3">
-                                        <div class="font-mono text-xs font-bold text-gray-900">
+                                    <td class="whitespace-nowrap px-4 py-3.5">
+                                        <div class="kopdes-num text-xs font-bold text-slate-900">
                                             {{ product.sku }}
                                         </div>
-                                        <div class="font-mono text-xs text-gray-500">
+                                        <div class="kopdes-num text-xs text-slate-500">
                                             {{ product.barcode }}
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 font-semibold text-gray-900">
+                                    <td class="px-4 py-3.5 font-semibold text-slate-900">
                                         {{ product.name }}
                                     </td>
-                                    <td class="px-4 py-3 text-gray-700">
-                                        {{ product.category?.name ?? '-' }}
+                                    <td class="px-4 py-3.5 text-slate-700">
+                                        <StatusBadge variant="slate" size="xs">
+                                            {{ product.category?.name ?? '-' }}
+                                        </StatusBadge>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-center text-gray-600">
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-center text-xs font-medium text-slate-600">
                                         {{ product.unit }}
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono text-gray-700">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right text-slate-700">
                                         {{ formatRupiah(product.cost_price) }}
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono font-bold text-gray-900">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right font-bold text-slate-900">
                                         {{ formatRupiah(product.selling_price) }}
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right">
                                         <span
                                             v-if="product.member_price !== null && product.member_price !== undefined"
                                             class="font-bold text-emerald-700"
                                         >
                                             {{ formatRupiah(product.member_price) }}
                                         </span>
-                                        <span v-else class="text-gray-400">-</span>
+                                        <span v-else class="text-slate-400">-</span>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-center">
-                                        <span
-                                            v-if="product.is_active"
-                                            class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800"
-                                        >
-                                            Aktif
-                                        </span>
-                                        <span
-                                            v-else
-                                            class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800"
-                                        >
-                                            Nonaktif
-                                        </span>
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-center">
+                                        <StatusBadge :variant="product.is_active ? 'emerald' : 'rose'" size="xs" dot>
+                                            {{ product.is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </StatusBadge>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right">
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-right">
                                         <div
                                             v-if="permissions.can_manage"
-                                            class="inline-flex items-center gap-2"
+                                            class="inline-flex items-center gap-1.5"
                                         >
                                             <Link
                                                 :href="route('products.edit', product.id)"
-                                                class="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                                class="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                             >
                                                 Edit
                                             </Link>
                                             <button
                                                 type="button"
                                                 @click="deleteProduct(product)"
-                                                class="rounded border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-100"
+                                                class="cursor-pointer rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
                                             >
                                                 Hapus
                                             </button>
                                         </div>
-                                        <span
-                                            v-else
-                                            class="text-xs text-gray-400"
-                                        >
+                                        <span v-else class="text-xs text-slate-400">
                                             Katalog Pusat
                                         </span>
-                                    </td>
-                                </tr>
-                                <tr v-if="products.length === 0">
-                                    <td
-                                        colspan="9"
-                                        class="px-4 py-8 text-center text-sm text-gray-500"
-                                    >
-                                        Tidak ada produk dalam katalog.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <EmptyState
+                        v-else
+                        title="Tidak ada produk dalam katalog"
+                        description="Belum ada produk yang sesuai dengan filter pencarian, kategori, atau status penjualan."
+                    >
+                        <template v-if="permissions.can_manage" #actions>
+                            <Link :href="route('products.create')" class="btn-kopdes-primary !text-xs">
+                                + Tambah Produk Global
+                            </Link>
+                        </template>
+                    </EmptyState>
                 </div>
             </div>
         </div>

@@ -3,6 +3,9 @@ import { computed, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import StatCard from '@/Components/StatCard.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -59,29 +62,22 @@ const netProfit = computed(() => Number(props.kpis.net_profit ?? (grossProfit.va
 const netMarginPercentage = computed(() => Number(props.kpis.net_margin_percentage || 0));
 const totalMemberDiscount = computed(() => Number(props.kpis.total_member_discount || 0));
 
-const avgTransactionValue = computed(() => {
-    if (totalTransactions.value <= 0) {
-        return 0;
-    }
-    return totalRevenue.value / totalTransactions.value;
-});
+const cashRevenue = computed(() => Number(props.paymentBreakdown.cash?.total_revenue || 0));
+const midtransRevenue = computed(() => Number(props.paymentBreakdown.midtrans?.total_revenue || 0));
+const paymentTotalRevenue = computed(() => cashRevenue.value + midtransRevenue.value);
 
 const cashSharePercent = computed(() => {
-    if (totalRevenue.value <= 0) {
+    if (paymentTotalRevenue.value <= 0) {
         return 0;
     }
-    return Math.round(
-        (Number(props.paymentBreakdown.cash?.total_revenue || 0) / totalRevenue.value) * 100,
-    );
+    return Math.round((cashRevenue.value / paymentTotalRevenue.value) * 100);
 });
 
 const midtransSharePercent = computed(() => {
-    if (totalRevenue.value <= 0) {
+    if (paymentTotalRevenue.value <= 0) {
         return 0;
     }
-    return Math.round(
-        (Number(props.paymentBreakdown.midtrans?.total_revenue || 0) / totalRevenue.value) * 100,
-    );
+    return Math.max(0, 100 - cashSharePercent.value);
 });
 
 const cogsRatioPercent = computed(() => {
@@ -119,6 +115,28 @@ const branchTotals = computed(() => {
         margin: totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0,
         netMargin: totals.revenue > 0 ? (totals.netProfit / totals.revenue) * 100 : 0,
     };
+});
+
+const topBranchesForChart = computed(() => {
+    const sorted = [...props.branchSummaries].sort(
+        (a, b) => Number(b.net_revenue ?? b.total_revenue ?? 0) - Number(a.net_revenue ?? a.total_revenue ?? 0),
+    );
+    const maxRev = Math.max(
+        1,
+        ...sorted.map((r) => Number(r.net_revenue ?? r.total_revenue ?? 0)),
+    );
+    return sorted.slice(0, 6).map((row) => {
+        const rev = Number(row.net_revenue ?? row.total_revenue ?? 0);
+        const net = Number(row.net_profit ?? 0);
+        return {
+            ...row,
+            chart_revenue: rev,
+            chart_net_profit: net,
+            bar_width: Math.max(rev > 0 ? 4 : 0, Math.round((rev / maxRev) * 100)),
+            net_width: rev > 0 && net > 0 ? Math.min(100, Math.round((net / rev) * 100)) : 0,
+            share: branchTotals.value.revenue > 0 ? Math.round((rev / branchTotals.value.revenue) * 100) : 0,
+        };
+    });
 });
 
 const formatRupiah = (value) => {
@@ -231,20 +249,18 @@ const branchRevenueShare = (branchRevenue) => {
                         <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
                             Dashboard Keuangan KOPDES
                         </h1>
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
-                            Basis Snapshot HPP &bull; Lunas (Paid)
-                        </span>
+                        <StatusBadge variant="emerald" dot>
+                            Snapshot HPP &bull; Lunas (Paid)
+                        </StatusBadge>
                     </div>
                     <p class="mt-1 text-sm text-slate-600">
                         Periode aktif:
-                        <span class="kopdes-num font-semibold text-slate-800">
-                            {{ filters.start_date }}
-                        </span>
+                        <span class="kopdes-num font-semibold text-slate-800">{{ filters.start_date }}</span>
                         s.d.
-                        <span class="kopdes-num font-semibold text-slate-800">
-                            {{ filters.end_date }}
-                        </span>
+                        <span class="kopdes-num font-semibold text-slate-800">{{ filters.end_date }}</span>
+                        <span class="mx-1.5 text-slate-300">|</span>
+                        <span class="kopdes-num font-semibold text-slate-800">{{ formatNumber(totalTransactions) }}</span>
+                        transaksi lunas
                     </p>
                 </div>
 
@@ -284,9 +300,11 @@ const branchRevenueShare = (branchRevenue) => {
                 <section class="kopdes-card p-5" aria-label="Filter Laporan Keuangan">
                     <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-kopdes-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
+                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-kopdes-50 text-kopdes-700 ring-1 ring-inset ring-kopdes-200/70">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                            </span>
                             <h2 class="text-sm font-bold text-slate-900">
                                 Filter Periode &amp; Drill-Down Wilayah
                             </h2>
@@ -296,21 +314,21 @@ const branchRevenueShare = (branchRevenue) => {
                         <div class="flex flex-wrap items-center gap-1.5">
                             <button
                                 type="button"
-                                class="cursor-pointer rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
+                                class="cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                 @click="applyDatePreset('today')"
                             >
                                 Hari Ini
                             </button>
                             <button
                                 type="button"
-                                class="cursor-pointer rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
+                                class="cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                 @click="applyDatePreset('last7')"
                             >
                                 7 Hari Terakhir
                             </button>
                             <button
                                 type="button"
-                                class="cursor-pointer rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
+                                class="cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                 @click="applyDatePreset('month')"
                             >
                                 Bulan Ini
@@ -436,229 +454,272 @@ const branchRevenueShare = (branchRevenue) => {
                     </form>
                 </section>
 
-                <!-- 4 Kartu KPI Keuangan Utama (Omzet -> Laba Kotor -> Biaya Operasional -> Laba Bersih) -->
-                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ringkasan KPI Keuangan">
-                    <!-- KPI 1: Omzet Bersih (Pasca-Retur) -->
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-kopdes-700"></div>
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Omzet Bersih (Pasca-Retur)
-                                </p>
-                                <p class="kopdes-num mt-2 truncate text-2xl font-extrabold text-slate-900">
-                                    {{ formatRupiah(totalRevenue) }}
-                                </p>
-                            </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-kopdes-50 text-kopdes-700 ring-1 ring-kopdes-100">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-600">
-                            <span>Bruto {{ formatRupiah(grossRevenue) }}</span>
-                            <span class="kopdes-num font-semibold" :class="totalReturns > 0 ? 'text-rose-700' : 'text-slate-500'">
-                                Retur {{ formatRupiah(totalReturns) }}
-                            </span>
-                        </div>
-                    </div>
+                <!-- 5 Kartu KPI Keuangan Utama -->
+                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Ringkasan KPI Keuangan">
+                    <StatCard
+                        label="Omzet Bersih"
+                        :value="formatRupiah(totalRevenue)"
+                        :helper="`Bruto ${formatRupiah(grossRevenue)}`"
+                        :badge="totalReturns > 0 ? `Retur -${formatRupiah(totalReturns)}` : 'Nihil Retur'"
+                        accent="kopdes"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <!-- KPI 2: Total Laba Kotor -->
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-emerald-600"></div>
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Laba Kotor (Pasca-Retur)
-                                </p>
-                                <p class="kopdes-num mt-2 truncate text-2xl font-extrabold text-emerald-700">
-                                    {{ formatRupiah(grossProfit) }}
-                                </p>
-                            </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-600">
-                            <span>HPP Bersih {{ formatRupiah(totalCogs) }}</span>
-                            <span class="kopdes-num font-bold text-amber-700">
-                                {{ grossMarginPercent.toFixed(2) }}%
-                            </span>
-                        </div>
-                    </div>
+                    <StatCard
+                        label="Laba Kotor"
+                        :value="formatRupiah(grossProfit)"
+                        :helper="`HPP ${formatRupiah(totalCogs)}`"
+                        :badge="`Margin ${grossMarginPercent.toFixed(1)}%`"
+                        accent="emerald"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <!-- KPI 3: Total Biaya Operasional -->
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-rose-600"></div>
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Total Biaya Operasional
-                                </p>
-                                <p class="kopdes-num mt-2 truncate text-2xl font-extrabold text-rose-700">
-                                    {{ formatRupiah(totalOperationalExpenses) }}
-                                </p>
-                            </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-700 ring-1 ring-rose-100">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-600">
-                            <span>Beban Cabang Aktif</span>
+                    <StatCard
+                        label="Biaya Operasional"
+                        :value="formatRupiah(totalOperationalExpenses)"
+                        helper="Beban Cabang Aktif"
+                        accent="rose"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                            </svg>
+                        </template>
+                        <template #footer>
                             <Link
                                 :href="route('expenses.index', buildQueryParams())"
-                                class="font-semibold text-kopdes-700 hover:underline"
+                                class="text-xs font-semibold text-kopdes-700 hover:underline"
                             >
-                                Rincian Biaya &rarr;
+                                Rincian &rarr;
                             </Link>
-                        </div>
-                    </div>
+                        </template>
+                    </StatCard>
 
-                    <!-- KPI 4: Laba Bersih / SHU Bruto -->
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div
-                            class="absolute inset-x-0 top-0 h-1"
-                            :class="netProfit >= 0 ? 'bg-blue-600' : 'bg-rose-600'"
-                        ></div>
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Laba Bersih (Dasar SHU)
-                                </p>
-                                <p
-                                    class="kopdes-num mt-2 truncate text-2xl font-extrabold"
-                                    :class="netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'"
-                                >
-                                    {{ formatRupiah(netProfit) }}
-                                </p>
-                            </div>
-                            <div
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1"
-                                :class="
-                                    netProfit >= 0
-                                        ? 'bg-blue-50 text-blue-700 ring-blue-100'
-                                        : 'bg-rose-50 text-rose-700 ring-rose-100'
-                                "
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-600">
-                            <span>Margin Bersih</span>
-                            <span class="kopdes-num font-bold text-amber-700">
-                                {{ netMarginPercentage.toFixed(2) }}%
-                            </span>
-                        </div>
-                    </div>
+                    <StatCard
+                        label="Laba Bersih (SHU)"
+                        :value="formatRupiah(netProfit)"
+                        helper="Dasar Perhitungan SHU"
+                        :badge="`Net ${netMarginPercentage.toFixed(1)}%`"
+                        :accent="netProfit >= 0 ? 'indigo' : 'rose'"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="Rasio Tunai : Midtrans"
+                        :value="`${cashSharePercent}% : ${midtransSharePercent}%`"
+                        :helper="`Hemat Member ${formatRupiah(totalMemberDiscount)}`"
+                        :badge="`${formatNumber(totalTransactions)} Trx`"
+                        accent="amber"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                        </template>
+                    </StatCard>
                 </section>
 
                 <!-- Baris Analitik Visual 2 Kolom -->
                 <section class="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                    <!-- Kolom Kiri (7): Perbandingan Kanal Pembayaran -->
-                    <div class="kopdes-card p-5 lg:col-span-7">
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <h2 class="text-base font-bold text-slate-900">
-                                    Distribusi Kanal Pembayaran POS
-                                </h2>
-                                <p class="mt-0.5 text-xs text-slate-600">
-                                    Proporsi omzet dan laba kotor antara pembayaran Tunai dan Midtrans Snap
-                                </p>
+                    <!-- Kolom Kiri (7): Perbandingan Kanal Pembayaran & Grafik Performa Cabang -->
+                    <div class="space-y-6 lg:col-span-7">
+                        <!-- Kanal Pembayaran -->
+                        <div class="kopdes-card p-5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h2 class="text-base font-bold text-slate-900">
+                                        Distribusi Kanal Pembayaran POS
+                                    </h2>
+                                    <p class="mt-0.5 text-xs text-slate-600">
+                                        Proporsi omzet dan laba kotor antara pembayaran Tunai dan Midtrans Snap
+                                    </p>
+                                </div>
+                                <StatusBadge variant="slate" size="xs">
+                                    Tunai vs Midtrans
+                                </StatusBadge>
                             </div>
-                            <span class="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
-                                Tunai vs Midtrans
-                            </span>
-                        </div>
 
-                        <!-- Stacked Comparison Bar -->
-                        <div class="mt-4">
-                            <div class="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                                <div
-                                    class="h-full bg-emerald-600 transition-all duration-300"
-                                    :style="{ width: `${cashSharePercent}%` }"
-                                    :title="`Tunai: ${cashSharePercent}%`"
-                                ></div>
-                                <div
-                                    class="h-full bg-blue-600 transition-all duration-300"
-                                    :style="{ width: `${midtransSharePercent}%` }"
-                                    :title="`Midtrans: ${midtransSharePercent}%`"
-                                ></div>
-                            </div>
-                            <div class="mt-2 flex items-center justify-between text-xs font-semibold">
-                                <span class="flex items-center gap-1.5 text-emerald-700">
-                                    <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span>
-                                    Tunai ({{ cashSharePercent }}%)
-                                </span>
-                                <span class="flex items-center gap-1.5 text-blue-700">
-                                    <span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                                    Midtrans ({{ midtransSharePercent }}%)
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Detail 2 Kanal -->
-                        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                                        Tunai (Cash)
+                            <!-- Stacked Comparison Bar -->
+                            <div class="mt-4">
+                                <div class="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/80">
+                                    <div
+                                        class="h-full bg-emerald-600 transition-all duration-300"
+                                        :style="{ width: `${cashSharePercent}%` }"
+                                        :title="`Tunai: ${cashSharePercent}%`"
+                                    ></div>
+                                    <div
+                                        class="h-full bg-indigo-600 transition-all duration-300"
+                                        :style="{ width: `${midtransSharePercent}%` }"
+                                        :title="`Midtrans: ${midtransSharePercent}%`"
+                                    ></div>
+                                </div>
+                                <div class="mt-2 flex items-center justify-between text-xs font-semibold">
+                                    <span class="flex items-center gap-1.5 text-emerald-700">
+                                        <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span>
+                                        Tunai (<span class="kopdes-num">{{ cashSharePercent }}%</span>)
                                     </span>
-                                    <span class="kopdes-num rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
-                                        {{ formatNumber(paymentBreakdown.cash?.transactions_count) }} Trx
+                                    <span class="flex items-center gap-1.5 text-indigo-700">
+                                        <span class="h-2.5 w-2.5 rounded-full bg-indigo-600"></span>
+                                        Midtrans (<span class="kopdes-num">{{ midtransSharePercent }}%</span>)
                                     </span>
                                 </div>
-                                <p class="kopdes-num mt-2 text-xl font-extrabold text-slate-900">
-                                    {{ formatRupiah(paymentBreakdown.cash?.total_revenue) }}
-                                </p>
-                                <p class="mt-1 text-xs text-slate-600">
-                                    Laba Kotor:
-                                    <strong class="kopdes-num text-emerald-800">
-                                        {{ formatRupiah(paymentBreakdown.cash?.gross_profit) }}
-                                    </strong>
-                                </p>
                             </div>
 
-                            <div class="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-900">
-                                        Midtrans Snap
+                            <!-- Detail 2 Kanal -->
+                            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                                            Tunai (Cash)
+                                        </span>
+                                        <StatusBadge variant="emerald" size="xs">
+                                            <span class="kopdes-num">{{ formatNumber(paymentBreakdown.cash?.transactions_count) }} Trx</span>
+                                        </StatusBadge>
+                                    </div>
+                                    <p class="kopdes-num mt-2 text-xl font-extrabold text-slate-900">
+                                        {{ formatRupiah(paymentBreakdown.cash?.total_revenue) }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-slate-600">
+                                        Laba Kotor:
+                                        <strong class="kopdes-num text-emerald-800">
+                                            {{ formatRupiah(paymentBreakdown.cash?.gross_profit) }}
+                                        </strong>
+                                    </p>
+                                </div>
+
+                                <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-900">
+                                            Midtrans Snap
+                                        </span>
+                                        <StatusBadge variant="indigo" size="xs">
+                                            <span class="kopdes-num">{{ formatNumber(paymentBreakdown.midtrans?.transactions_count) }} Trx</span>
+                                        </StatusBadge>
+                                    </div>
+                                    <p class="kopdes-num mt-2 text-xl font-extrabold text-slate-900">
+                                        {{ formatRupiah(paymentBreakdown.midtrans?.total_revenue) }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-slate-600">
+                                        Laba Kotor:
+                                        <strong class="kopdes-num text-indigo-800">
+                                            {{ formatRupiah(paymentBreakdown.midtrans?.gross_profit) }}
+                                        </strong>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grafik Visual Perbandingan Kinerja Cabang (Pure CSS Horizontal Bars) -->
+                        <div class="kopdes-card p-5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h2 class="text-base font-bold text-slate-900">
+                                        Perbandingan Performa Cabang KOPDES
+                                    </h2>
+                                    <p class="mt-0.5 text-xs text-slate-600">
+                                        Peringkat omzet bersih &amp; kontribusi laba bersih (maks. 6 cabang teratas)
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-3 text-[11px] font-semibold text-slate-600">
+                                    <span class="flex items-center gap-1">
+                                        <span class="h-2 w-2 rounded-full bg-kopdes-700"></span>
+                                        Omzet
                                     </span>
-                                    <span class="kopdes-num rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-800">
-                                        {{ formatNumber(paymentBreakdown.midtrans?.transactions_count) }} Trx
+                                    <span class="flex items-center gap-1">
+                                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        Laba Bersih
                                     </span>
                                 </div>
-                                <p class="kopdes-num mt-2 text-xl font-extrabold text-slate-900">
-                                    {{ formatRupiah(paymentBreakdown.midtrans?.total_revenue) }}
-                                </p>
-                                <p class="mt-1 text-xs text-slate-600">
-                                    Laba Kotor:
-                                    <strong class="kopdes-num text-blue-800">
-                                        {{ formatRupiah(paymentBreakdown.midtrans?.gross_profit) }}
-                                    </strong>
-                                </p>
                             </div>
+
+                            <div v-if="topBranchesForChart.length > 0" class="mt-4 space-y-3.5">
+                                <div
+                                    v-for="row in topBranchesForChart"
+                                    :key="`chart-${row.branch_id}`"
+                                    class="space-y-1.5"
+                                >
+                                    <div class="flex items-center justify-between gap-2 text-xs">
+                                        <div class="flex min-w-0 items-center gap-2">
+                                            <span class="kopdes-num shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                                                {{ row.branch_code }}
+                                            </span>
+                                            <span class="truncate font-semibold text-slate-900">
+                                                {{ row.branch_name }}
+                                            </span>
+                                        </div>
+                                        <div class="kopdes-num flex shrink-0 items-center gap-2">
+                                            <span class="font-bold text-slate-900">{{ formatRupiah(row.chart_revenue) }}</span>
+                                            <span class="rounded-full bg-kopdes-50 px-1.5 py-0.5 text-[10px] font-bold text-kopdes-700">
+                                                {{ row.share }}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                        <div
+                                            class="h-full rounded-full bg-kopdes-700 transition-all duration-300"
+                                            :style="{ width: `${row.bar_width}%` }"
+                                        >
+                                            <div
+                                                v-if="row.net_width > 0"
+                                                class="h-full rounded-full bg-emerald-500/90"
+                                                :style="{ width: `${row.net_width}%` }"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                        <span>{{ formatNumber(row.total_transactions) }} transaksi</span>
+                                        <span
+                                            class="kopdes-num font-semibold"
+                                            :class="row.chart_net_profit >= 0 ? 'text-emerald-700' : 'text-rose-700'"
+                                        >
+                                            Laba Bersih: {{ formatRupiah(row.chart_net_profit) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <EmptyState
+                                v-else
+                                title="Belum ada data performa cabang"
+                                description="Data perbandingan cabang akan tampil setelah transaksi lunas tercatat pada periode ini."
+                            />
                         </div>
                     </div>
 
                     <!-- Kolom Kanan (5): Struktur Laba Rugi Lengkap (Omzet -> HPP -> Opex -> Laba Bersih) -->
                     <div class="kopdes-card flex flex-col justify-between p-5 lg:col-span-5">
                         <div>
-                            <h2 class="text-base font-bold text-slate-900">
-                                Ringkasan Laba Rugi &amp; Dasar SHU
-                            </h2>
-                            <p class="mt-0.5 text-xs text-slate-600">
-                                Alur lengkap dari Omzet hingga Laba Bersih setelah Biaya Operasional
-                            </p>
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h2 class="text-base font-bold text-slate-900">
+                                        Ringkasan Laba Rugi &amp; Dasar SHU
+                                    </h2>
+                                    <p class="mt-0.5 text-xs text-slate-600">
+                                        Alur lengkap dari Omzet hingga Laba Bersih setelah Biaya Operasional
+                                    </p>
+                                </div>
+                                <StatusBadge variant="emerald" size="xs">
+                                    Net {{ netMarginPercentage.toFixed(1) }}%
+                                </StatusBadge>
+                            </div>
 
-                            <dl class="mt-4 space-y-1.5 text-sm">
-                                <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5">
+                            <dl class="mt-4 space-y-2 text-sm">
+                                <div class="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2">
                                     <dt class="text-xs font-semibold text-slate-700">
                                         Omzet Bruto ({{ formatNumber(totalTransactions) }} Trx Paid)
                                     </dt>
@@ -667,7 +728,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg bg-rose-50/50 px-3 py-1.5">
+                                <div class="flex items-center justify-between rounded-xl bg-rose-50/50 px-3.5 py-2">
                                     <dt class="text-xs font-semibold text-rose-800">
                                         (&minus;) Total Retur &amp; Void
                                     </dt>
@@ -676,7 +737,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5">
+                                <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2">
                                     <dt class="text-xs font-bold text-slate-900">
                                         (=) Omzet Bersih
                                     </dt>
@@ -685,7 +746,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5">
+                                <div class="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2">
                                     <dt class="text-xs font-semibold text-slate-600">
                                         (&minus;) HPP Bersih ({{ cogsRatioPercent }}%)
                                         <span v-if="restockedCogs > 0" class="block text-[10px] font-normal text-slate-500">
@@ -697,7 +758,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg bg-amber-50/70 px-3 py-1.5">
+                                <div class="flex items-center justify-between rounded-xl bg-amber-50/70 px-3.5 py-2">
                                     <dt class="text-xs font-semibold text-amber-900">
                                         Info: Kerugian Barang Rusak Retur
                                     </dt>
@@ -706,7 +767,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg bg-emerald-50/70 px-3 py-1.5">
+                                <div class="flex items-center justify-between rounded-xl bg-emerald-50/70 px-3.5 py-2">
                                     <dt class="text-xs font-semibold text-emerald-900">
                                         (=) Laba Kotor ({{ profitRatioPercent }}%)
                                     </dt>
@@ -715,7 +776,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg bg-rose-50/70 px-3 py-1.5">
+                                <div class="flex items-center justify-between rounded-xl bg-rose-50/70 px-3.5 py-2">
                                     <dt class="text-xs font-semibold text-rose-900">
                                         (&minus;) Biaya Operasional
                                     </dt>
@@ -725,7 +786,7 @@ const branchRevenueShare = (branchRevenue) => {
                                 </div>
 
                                 <div
-                                    class="flex items-center justify-between rounded-lg border px-3 py-2"
+                                    class="flex items-center justify-between rounded-xl border px-3.5 py-2.5"
                                     :class="
                                         netProfit >= 0
                                             ? 'border-emerald-200 bg-emerald-50'
@@ -743,11 +804,11 @@ const branchRevenueShare = (branchRevenue) => {
                                     </dd>
                                 </div>
 
-                                <div class="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-1.5">
-                                    <dt class="text-xs font-semibold text-blue-900">
+                                <div class="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50/60 px-3.5 py-2">
+                                    <dt class="text-xs font-semibold text-indigo-900">
                                         Info: Total Hemat Anggota Member
                                     </dt>
-                                    <dd class="kopdes-num text-xs font-bold text-blue-700">
+                                    <dd class="kopdes-num text-xs font-bold text-indigo-700">
                                         {{ formatRupiah(totalMemberDiscount) }}
                                     </dd>
                                 </div>
@@ -757,7 +818,7 @@ const branchRevenueShare = (branchRevenue) => {
                         <div class="mt-4 border-t border-slate-100 pt-3.5">
                             <Link
                                 :href="route('reports.members', buildQueryParams())"
-                                class="flex cursor-pointer items-center justify-between rounded-lg border border-kopdes-200 bg-kopdes-50/80 px-3.5 py-2.5 text-xs font-semibold text-kopdes-800 transition-colors hover:bg-kopdes-100"
+                                class="flex cursor-pointer items-center justify-between rounded-xl border border-kopdes-200 bg-kopdes-50/80 px-4 py-2.5 text-xs font-semibold text-kopdes-800 transition-colors hover:bg-kopdes-100"
                             >
                                 <span>Lihat Perhitungan SHU &amp; Rekap Anggota</span>
                                 <span aria-hidden="true">&rarr;</span>
@@ -785,7 +846,7 @@ const branchRevenueShare = (branchRevenue) => {
                         </Link>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div v-if="branchSummaries.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -851,7 +912,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right text-slate-700">
                                         {{ formatRupiah(row.cash_revenue) }}
                                     </td>
-                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right text-slate-700">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right text-indigo-700">
                                         {{ formatRupiah(row.midtrans_revenue) }}
                                     </td>
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right font-bold text-slate-900">
@@ -870,21 +931,13 @@ const branchRevenueShare = (branchRevenue) => {
                                         {{ formatRupiah(row.net_profit) }}
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3.5 text-center">
-                                        <span class="kopdes-num inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 ring-1 ring-inset ring-amber-200">
-                                            {{ Number(row.net_margin_percentage || 0).toFixed(2) }}%
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr v-if="branchSummaries.length === 0">
-                                    <td
-                                        colspan="9"
-                                        class="px-4 py-10 text-center text-sm text-slate-500"
-                                    >
-                                        Belum ada cabang KOPDES pada filter wilayah ini.
+                                        <StatusBadge :variant="Number(row.net_profit || 0) >= 0 ? 'amber' : 'rose'" size="xs">
+                                            <span class="kopdes-num">{{ Number(row.net_margin_percentage || 0).toFixed(2) }}%</span>
+                                        </StatusBadge>
                                     </td>
                                 </tr>
                             </tbody>
-                            <tfoot v-if="branchSummaries.length > 0" class="border-t-2 border-slate-200 bg-slate-50">
+                            <tfoot class="border-t-2 border-slate-200 bg-slate-50">
                                 <tr>
                                     <td class="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">
                                         Total Keseluruhan ({{ formatNumber(branchSummaries.length) }} Cabang)
@@ -895,7 +948,7 @@ const branchRevenueShare = (branchRevenue) => {
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-slate-800">
                                         {{ formatRupiah(branchTotals.cashRevenue) }}
                                     </td>
-                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-slate-800">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-indigo-800">
                                         {{ formatRupiah(branchTotals.midtransRevenue) }}
                                     </td>
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-extrabold text-slate-900">
@@ -914,14 +967,20 @@ const branchRevenueShare = (branchRevenue) => {
                                         {{ formatRupiah(branchTotals.netProfit) }}
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-center">
-                                        <span class="kopdes-num inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-extrabold text-amber-900">
-                                            {{ branchTotals.netMargin.toFixed(2) }}%
-                                        </span>
+                                        <StatusBadge :variant="branchTotals.netProfit >= 0 ? 'amber' : 'rose'" size="sm">
+                                            <span class="kopdes-num">{{ branchTotals.netMargin.toFixed(2) }}%</span>
+                                        </StatusBadge>
                                     </td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
+
+                    <EmptyState
+                        v-else
+                        title="Belum ada cabang pada filter wilayah ini"
+                        description="Coba ubah rentang tanggal atau perluas filter wilayah untuk melihat agregasi kinerja cabang KOPDES."
+                    />
                 </section>
             </div>
         </div>

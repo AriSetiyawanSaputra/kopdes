@@ -235,7 +235,10 @@ Route::middleware([
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 });
 
-Route::middleware('auth:web')->group(function () {
+Route::middleware([
+    'auth:web',
+    'role:admin_nasional,admin_provinsi,admin_kabupaten,admin_cabang',
+])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

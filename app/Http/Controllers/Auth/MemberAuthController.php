@@ -39,22 +39,11 @@ class MemberAuthController extends Controller
     {
         $identifier = trim((string) $request->validated('identifier'));
         $pin = (string) $request->validated('pin');
-        $throttleKey = $this->throttleKey($identifier, (string) $request->ip());
+        $ip = (string) $request->ip();
+        $throttleKey = $this->throttleKey($identifier, $ip);
 
         if (RateLimiter::tooManyAttempts($throttleKey, self::MAX_PIN_ATTEMPTS)) {
-            $retryAfter = RateLimiter::availableIn($throttleKey);
-
-            return response()->json([
-                'message' => "Terlalu banyak percobaan PIN salah. Akun diblokir sementara, silakan tunggu {$retryAfter} detik.",
-                'retry_after' => $retryAfter,
-                'errors' => [
-                    'pin' => [
-                        "Terlalu banyak percobaan PIN salah. Silakan coba lagi dalam {$retryAfter} detik.",
-                    ],
-                ],
-            ], 429, [
-                'Retry-After' => (string) $retryAfter,
-            ]);
+            return $this->tooManyAttemptsResponse($throttleKey);
         }
 
         // First match by member_code (case-insensitive), fallback to exact phone number
@@ -83,25 +72,27 @@ class MemberAuthController extends Controller
             RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
 
             throw ValidationException::withMessages([
-                'pin' => 'Kode Member / Nomor HP atau PIN 6 digit tidak valid.',
+                'identifier' => 'Kode Member / Nomor HP atau PIN 6 digit tidak valid.',
             ]);
         }
 
-        if (! $member->isActive() || empty($member->pin_hash)) {
-            throw ValidationException::withMessages([
-                'identifier' => 'Akun portal belum aktif. Hubungi Admin KOPDES asal Anda.',
-            ]);
+        // SEC-08: Kunci throttle sekunder berbasis member_id agar pergantian member_code <-> phone tetap terkena limit 5x
+        $memberThrottleKey = $this->memberThrottleKey($member->id, $ip);
+        if (RateLimiter::tooManyAttempts($memberThrottleKey, self::MAX_PIN_ATTEMPTS)) {
+            return $this->tooManyAttemptsResponse($memberThrottleKey);
         }
 
-        if (! Hash::check($pin, $member->pin_hash)) {
+        if (! $member->isActive() || empty($member->pin_hash) || ! Hash::check($pin, $member->pin_hash)) {
             RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
+            RateLimiter::hit($memberThrottleKey, self::DECAY_SECONDS);
 
             throw ValidationException::withMessages([
-                'pin' => 'Kode Member / Nomor HP atau PIN 6 digit tidak valid.',
+                'identifier' => 'Kode Member / Nomor HP atau PIN 6 digit tidak valid.',
             ]);
         }
 
         RateLimiter::clear($throttleKey);
+        RateLimiter::clear($memberThrottleKey);
 
         Auth::guard('member')->login($member, (bool) $request->boolean('remember'));
         $request->session()->regenerate();
@@ -115,9 +106,27 @@ class MemberAuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         Auth::guard('member')->logout();
+        $request->session()->regenerate();
         $request->session()->regenerateToken();
 
         return redirect()->route('member.login');
+    }
+
+    private function tooManyAttemptsResponse(string $key): JsonResponse
+    {
+        $retryAfter = RateLimiter::availableIn($key);
+
+        return response()->json([
+            'message' => "Terlalu banyak percobaan PIN salah. Akun diblokir sementara, silakan tunggu {$retryAfter} detik.",
+            'retry_after' => $retryAfter,
+            'errors' => [
+                'pin' => [
+                    "Terlalu banyak percobaan PIN salah. Silakan coba lagi dalam {$retryAfter} detik.",
+                ],
+            ],
+        ], 429, [
+            'Retry-After' => (string) $retryAfter,
+        ]);
     }
 
     /**
@@ -126,5 +135,10 @@ class MemberAuthController extends Controller
     private function throttleKey(string $identifier, string $ip): string
     {
         return 'member-pin:'.strtolower(trim($identifier)).'|'.$ip;
+    }
+
+    private function memberThrottleKey(int $memberId, string $ip): string
+    {
+        return 'member-pin-id:'.$memberId.'|'.$ip;
     }
 }

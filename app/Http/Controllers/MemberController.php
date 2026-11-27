@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\Member;
 use App\Services\ActivityLogService;
 use App\Services\MemberService;
+use App\Support\DemoAccountGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -179,6 +180,10 @@ class MemberController extends Controller
      */
     public function replaceCard(ReplaceMemberCardRequest $request, Member $member): RedirectResponse
     {
+        if (DemoAccountGuard::isProtectedDemoMember($member)) {
+            abort(403, 'Kartu RFID member demo bawaan dilindungi saat Mode Demo aktif.');
+        }
+
         $oldCardUid = $member->card_uid;
         $updated = $this->memberService->replaceCard($member, (string) $request->validated('card_uid'));
 
@@ -202,6 +207,10 @@ class MemberController extends Controller
     public function toggleStatus(Request $request, Member $member): RedirectResponse
     {
         Gate::authorize('update', $member);
+
+        if (DemoAccountGuard::isProtectedDemoMember($member)) {
+            abort(403, 'Status akun member demo bawaan tidak dapat diubah saat Mode Demo aktif.');
+        }
 
         $oldStatus = $member->status;
         $updated = $this->memberService->toggleStatus($member);
@@ -227,6 +236,9 @@ class MemberController extends Controller
      */
     public function resetPin(ResetMemberPinRequest $request, Member $member): RedirectResponse
     {
+        if (DemoAccountGuard::isProtectedDemoMember($member)) {
+            abort(403, 'PIN akun member demo bawaan tidak dapat diubah saat Mode Demo aktif.');
+        }
         $hadPinBefore = ! empty($member->pin_hash);
         $updated = $this->memberService->resetPin($member, (string) $request->validated('pin'));
         $verb = $hadPinBefore ? 'direset' : 'diatur';

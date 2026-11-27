@@ -4,7 +4,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
+import AppPagination from '@/Components/AppPagination.vue';
+import { Head, router } from '@inertiajs/vue3';
 
 const props = defineProps({
     logs: {
@@ -91,17 +94,17 @@ const resetFilters = () => {
     router.get(route('activity-logs.index'));
 };
 
-const actionBadgeClass = (action) => {
+const actionBadgeVariant = (action) => {
     if (action?.startsWith('settings') || action?.startsWith('product')) {
-        return 'bg-blue-50 text-blue-700 ring-blue-200';
+        return 'indigo';
     }
     if (action?.includes('return') || action?.includes('force_closed')) {
-        return 'bg-rose-50 text-rose-700 ring-rose-200';
+        return 'rose';
     }
     if (action?.includes('status') || action?.includes('card')) {
-        return 'bg-amber-50 text-amber-800 ring-amber-200';
+        return 'amber';
     }
-    return 'bg-slate-100 text-slate-700 ring-slate-200';
+    return 'slate';
 };
 
 const diffRows = computed(() => {
@@ -150,9 +153,9 @@ const formatDiffValue = (val) => {
                         Catatan immutable (append-only) seluruh perubahan harga, aktivasi akun/cabang, force-close shift, retur, dan pengaturan sistem
                     </p>
                 </div>
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-inset ring-slate-200">
+                <StatusBadge variant="slate" dot>
                     Read-Only &bull; Tersensor dari Kredensial
-                </span>
+                </StatusBadge>
             </div>
         </template>
 
@@ -271,11 +274,14 @@ const formatDiffValue = (val) => {
                 <section class="kopdes-card overflow-hidden">
                     <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                         <h2 class="text-base font-bold text-slate-900">
-                            Riwayat Aktivitas ({{ logs.total }} Catatan)
+                            Riwayat Aktivitas
                         </h2>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ logs.total }} Catatan</span>
+                        </StatusBadge>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div v-if="logs.data.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -302,12 +308,9 @@ const formatDiffValue = (val) => {
                                         <div class="text-[11px] uppercase text-slate-500">{{ log.actor_role || '-' }}</div>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3.5">
-                                        <span
-                                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ring-inset"
-                                            :class="actionBadgeClass(log.action)"
-                                        >
+                                        <StatusBadge :variant="actionBadgeVariant(log.action)" size="xs">
                                             {{ log.action_label }}
-                                        </span>
+                                        </StatusBadge>
                                         <div class="kopdes-num mt-0.5 text-[10px] text-slate-400">{{ log.action }}</div>
                                     </td>
                                     <td class="max-w-md px-4 py-3.5 text-xs text-slate-700">
@@ -320,61 +323,38 @@ const formatDiffValue = (val) => {
                                         </template>
                                         <span v-else-if="log.regency_name">{{ log.regency_name }}</span>
                                         <span v-else-if="log.province_name">{{ log.province_name }}</span>
-                                        <span
-                                            v-else
-                                            class="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700"
-                                        >
+                                        <StatusBadge v-else variant="slate" size="xs">
                                             Global / Nasional
-                                        </span>
+                                        </StatusBadge>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3.5 text-center">
                                         <button
                                             type="button"
                                             @click="selectedLog = log"
-                                            class="inline-flex cursor-pointer items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
+                                            class="inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                         >
                                             Inspeksi Diff
                                         </button>
-                                    </td>
-                                </tr>
-                                <tr v-if="logs.data.length === 0">
-                                    <td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">
-                                        Belum ada catatan audit pada periode dan filter ini.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Pagination -->
-                    <div
-                        v-if="logs.links && logs.links.length > 3"
-                        class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3"
-                    >
-                        <span class="text-xs text-slate-600">
-                            Menampilkan {{ logs.from ?? 0 }}–{{ logs.to ?? 0 }} dari {{ logs.total }} catatan
-                        </span>
-                        <div class="flex flex-wrap gap-1">
-                            <template v-for="(link, idx) in logs.links" :key="idx">
-                                <Link
-                                    v-if="link.url"
-                                    :href="link.url"
-                                    class="rounded-md border px-2.5 py-1 text-xs font-semibold transition"
-                                    :class="
-                                        link.active
-                                            ? 'border-kopdes-700 bg-kopdes-700 text-white'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                                    "
-                                    v-html="link.label"
-                                />
-                                <span
-                                    v-else
-                                    class="rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs text-slate-400"
-                                    v-html="link.label"
-                                />
-                            </template>
-                        </div>
-                    </div>
+                    <EmptyState
+                        v-else
+                        title="Belum ada catatan audit"
+                        description="Belum ada aktivitas admin yang tercatat pada periode dan filter yang dipilih."
+                    />
+
+                    <!-- Safe Pagination -->
+                    <AppPagination
+                        :links="logs.links"
+                        :from="logs.from ?? 0"
+                        :to="logs.to ?? 0"
+                        :total="logs.total ?? 0"
+                        item-label="catatan audit"
+                    />
                 </section>
             </div>
         </div>
@@ -384,24 +364,22 @@ const formatDiffValue = (val) => {
             <div v-if="selectedLog" class="p-6">
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
                     <div>
-                        <span
-                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ring-inset"
-                            :class="actionBadgeClass(selectedLog.action)"
-                        >
+                        <StatusBadge :variant="actionBadgeVariant(selectedLog.action)" size="xs">
                             {{ selectedLog.action_label }}
-                        </span>
+                        </StatusBadge>
                         <h3 class="mt-1.5 text-base font-extrabold text-slate-900">
                             {{ selectedLog.description }}
                         </h3>
                         <p class="mt-0.5 text-xs text-slate-500">
                             Pelaku: <strong class="text-slate-800">{{ selectedLog.actor?.name ?? 'Sistem' }}</strong>
-                            &bull; {{ selectedLog.created_at }} &bull; IP {{ selectedLog.ip_address || '-' }}
+                            &bull; <span class="kopdes-num">{{ selectedLog.created_at }}</span> &bull; IP <span class="kopdes-num">{{ selectedLog.ip_address || '-' }}</span>
                         </p>
                     </div>
                     <button
                         type="button"
                         @click="selectedLog = null"
-                        class="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Tutup modal"
+                        class="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -409,27 +387,27 @@ const formatDiffValue = (val) => {
                     </button>
                 </div>
 
-                <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
+                <div class="mt-4 overflow-hidden rounded-xl border border-slate-200">
                     <table class="min-w-full divide-y divide-slate-200 text-xs">
                         <thead class="bg-slate-50">
                             <tr>
-                                <th class="px-3 py-2 text-left font-bold uppercase text-slate-600">Field</th>
-                                <th class="px-3 py-2 text-left font-bold uppercase text-rose-700">Nilai Lama (`old_values`)</th>
-                                <th class="px-3 py-2 text-left font-bold uppercase text-emerald-700">Nilai Baru (`new_values`)</th>
+                                <th class="px-3.5 py-2.5 text-left font-bold uppercase tracking-wider text-slate-600">Field</th>
+                                <th class="px-3.5 py-2.5 text-left font-bold uppercase tracking-wider text-rose-700">Nilai Lama</th>
+                                <th class="px-3.5 py-2.5 text-left font-bold uppercase tracking-wider text-emerald-700">Nilai Baru</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <tr v-for="row in diffRows" :key="row.key">
-                                <td class="kopdes-num px-3 py-2 font-bold text-slate-800">{{ row.key }}</td>
-                                <td class="kopdes-num whitespace-pre-wrap bg-rose-50/40 px-3 py-2 text-rose-800">
+                                <td class="kopdes-num px-3.5 py-2.5 font-bold text-slate-800">{{ row.key }}</td>
+                                <td class="kopdes-num whitespace-pre-wrap bg-rose-50/40 px-3.5 py-2.5 text-rose-800">
                                     {{ formatDiffValue(row.oldVal) }}
                                 </td>
-                                <td class="kopdes-num whitespace-pre-wrap bg-emerald-50/40 px-3 py-2 text-emerald-800">
+                                <td class="kopdes-num whitespace-pre-wrap bg-emerald-50/40 px-3.5 py-2.5 text-emerald-800">
                                     {{ formatDiffValue(row.newVal) }}
                                 </td>
                             </tr>
                             <tr v-if="diffRows.length === 0">
-                                <td colspan="3" class="px-3 py-6 text-center text-slate-500">
+                                <td colspan="3" class="px-3.5 py-6 text-center text-slate-500">
                                     Tidak ada rincian perubahan field yang dicatat pada log ini.
                                 </td>
                             </tr>

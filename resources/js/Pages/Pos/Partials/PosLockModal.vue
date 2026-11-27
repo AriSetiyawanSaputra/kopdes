@@ -1,7 +1,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import AppButton from '@/Components/AppButton.vue';
 import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { normalizeCardUid } from '@/Utils/normalizeCardUid';
 
 const props = defineProps({
@@ -23,15 +24,31 @@ const emit = defineEmits(['unlocked']);
 
 const cardUid = ref('');
 const pin = ref('');
+const pinFocused = ref(false);
 const errorMessage = ref('');
 const isSubmitting = ref(false);
 const retryAfterSeconds = ref(0);
+const lockoutTotalSeconds = ref(900);
 const cardInputRef = ref(null);
 const pinInputRef = ref(null);
 let countdownTimer = null;
 
 const normalizedUidPreview = computed(() => normalizeCardUid(cardUid.value));
 const isLockedOut = computed(() => retryAfterSeconds.value > 0);
+const pinSlots = computed(() =>
+    Array.from({ length: 6 }, (_, i) => i < String(pin.value || '').length),
+);
+
+const formattedCountdown = computed(() => {
+    const mins = Math.floor(retryAfterSeconds.value / 60);
+    const secs = retryAfterSeconds.value % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+});
+
+const lockoutProgressPercent = computed(() => {
+    if (!lockoutTotalSeconds.value) return 0;
+    return Math.min(100, Math.round((retryAfterSeconds.value / lockoutTotalSeconds.value) * 100));
+});
 
 const clearCountdown = () => {
     if (countdownTimer !== null) {
@@ -42,7 +59,9 @@ const clearCountdown = () => {
 
 const startLockoutCountdown = (seconds, message) => {
     clearCountdown();
-    retryAfterSeconds.value = Number(seconds) || 900;
+    const total = Number(seconds) || 900;
+    lockoutTotalSeconds.value = total;
+    retryAfterSeconds.value = total;
     errorMessage.value =
         message ||
         `Terlalu banyak percobaan PIN salah. Silakan tunggu ${retryAfterSeconds.value} detik.`;
@@ -67,6 +86,17 @@ const focusCardInput = () => {
     });
 };
 
+const focusPinInput = () => {
+    if (isSubmitting.value || isLockedOut.value) return;
+    nextTick(() => {
+        pinInputRef.value?.focus();
+    });
+};
+
+const onPinInput = (event) => {
+    pin.value = String(event.target.value || '').replace(/\D/g, '').slice(0, 6);
+};
+
 watch(
     () => props.show,
     (isOpen) => {
@@ -85,9 +115,7 @@ watch(
 const onCardEnter = () => {
     cardUid.value = normalizeCardUid(cardUid.value);
     if (cardUid.value) {
-        nextTick(() => {
-            pinInputRef.value?.focus();
-        });
+        focusPinInput();
     }
 };
 
@@ -105,6 +133,7 @@ const submitUnlock = async () => {
 
     if (!/^\d{6}$/.test(pin.value)) {
         errorMessage.value = 'PIN kasir wajib terdiri dari tepat 6 digit angka.';
+        focusPinInput();
         return;
     }
 
@@ -154,56 +183,77 @@ onBeforeUnmount(() => {
 
 <template>
     <Modal :show="show" max-width="md" :closeable="false">
-        <div class="p-6">
+        <div class="relative overflow-hidden p-6">
+            <div
+                class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-500 via-kopdes-700 to-amber-500"
+                aria-hidden="true"
+            ></div>
+
+            <!-- Lock Header -->
             <div class="text-center">
-                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-700">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-kopdes-50 text-kopdes-700 ring-1 ring-kopdes-200/80">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                 </div>
 
-                <h3 class="mt-3 text-lg font-extrabold text-gray-900">
-                    Layar POS Terkunci (Quick Lock F12 / Idle)
+                <div class="mt-3 flex justify-center">
+                    <StatusBadge variant="amber" size="xs" dot>
+                        Quick Lock F12 / Idle Auto-Lock
+                    </StatusBadge>
+                </div>
+
+                <h3 class="mt-2 text-lg font-extrabold tracking-tight text-slate-900">
+                    Layar POS Terkunci
                 </h3>
-                <p class="mt-1 text-xs text-gray-500">
-                    Kasir Aktif Sebelumnya:
-                    <strong class="text-gray-800">{{ currentCashier?.name ?? '-' }}</strong>
-                    ({{ branch?.name ?? '' }})
-                </p>
-                <p class="mt-0.5 text-[11px] text-gray-500">
-                    Keranjang dipertahankan jika dibuka oleh kasir yang sama, atau direset jika kasir berbeda.
+
+                <!-- Last Cashier Info Card -->
+                <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left">
+                    <div class="flex items-center justify-between gap-2 text-xs">
+                        <span class="text-slate-500">Kasir Terakhir:</span>
+                        <strong class="truncate font-bold text-slate-900">{{ currentCashier?.name ?? '-' }}</strong>
+                    </div>
+                    <div class="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                        <span>Cabang:</span>
+                        <span class="truncate font-semibold text-slate-700">{{ branch?.name ?? '-' }}</span>
+                    </div>
+                </div>
+                <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
+                    Keranjang dipertahankan jika dibuka kasir yang sama, atau otomatis direset jika kasir berganti.
                 </p>
             </div>
 
+            <!-- Lockout Countdown Banner -->
             <div
                 v-if="isLockedOut"
-                class="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-center text-xs text-red-800"
+                role="alert"
+                class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3.5"
             >
-                <div class="font-bold">Diblokir Sementara (5x Salah PIN)</div>
-                <div class="mt-1 font-mono font-extrabold">
-                    Tunggu {{ retryAfterSeconds }} detik
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-extrabold text-rose-900">Diblokir Sementara (5x Salah PIN)</span>
+                    <span class="kopdes-num rounded-lg bg-rose-700 px-2 py-0.5 text-xs font-extrabold text-white">
+                        {{ formattedCountdown }}
+                    </span>
+                </div>
+                <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-rose-200">
+                    <div
+                        class="h-full rounded-full bg-rose-600 transition-all duration-1000"
+                        :style="{ width: `${lockoutProgressPercent}%` }"
+                    ></div>
                 </div>
             </div>
 
+            <!-- Unlock Form -->
             <form @submit.prevent="submitUnlock" class="mt-5 space-y-4">
                 <div>
-                    <label
-                        for="pos-unlock-card-uid"
-                        class="block text-xs font-semibold text-gray-700"
-                    >
-                        1. Tap Kartu RFID Kasir
-                    </label>
+                    <div class="flex items-center justify-between">
+                        <label for="pos-unlock-card-uid" class="block text-xs font-semibold text-slate-700">
+                            1. Tap Kartu RFID Kasir
+                        </label>
+                        <span class="kopdes-num text-[11px] font-semibold text-slate-500">
+                            {{ normalizedUidPreview || '-' }}
+                        </span>
+                    </div>
                     <input
                         id="pos-unlock-card-uid"
                         ref="cardInputRef"
@@ -212,56 +262,89 @@ onBeforeUnmount(() => {
                         autocomplete="off"
                         :disabled="isSubmitting || isLockedOut"
                         @keydown.enter.prevent="onCardEnter"
-                        class="mt-1 block w-full rounded-md border-gray-300 font-mono text-base font-bold uppercase tracking-wider text-gray-900 shadow-sm focus:border-red-600 focus:ring-red-600"
+                        class="kopdes-input kopdes-num mt-1.5 text-sm font-bold uppercase tracking-widest disabled:bg-slate-100"
                         placeholder="Tempelkan kartu kasir..."
                         required
                     />
-                    <div class="mt-1 text-[11px] text-gray-500">
-                        UID Ternormalisasi:
-                        <span class="font-mono font-bold text-gray-800">
-                            {{ normalizedUidPreview || '-' }}
-                        </span>
-                    </div>
                 </div>
 
                 <div>
-                    <label
-                        for="pos-unlock-pin"
-                        class="block text-xs font-semibold text-gray-700"
-                    >
+                    <label for="pos-unlock-pin" class="block text-xs font-semibold text-slate-700">
                         2. PIN Kasir (6 Digit Angka)
                     </label>
-                    <input
-                        id="pos-unlock-pin"
-                        ref="pinInputRef"
-                        v-model="pin"
-                        type="password"
-                        inputmode="numeric"
-                        maxlength="6"
-                        pattern="\d{6}"
-                        autocomplete="off"
-                        :disabled="isSubmitting || isLockedOut"
-                        class="mt-1 block w-full rounded-md border-gray-300 text-center font-mono text-xl font-bold tracking-[0.5em] text-gray-900 shadow-sm focus:border-red-600 focus:ring-red-600"
-                        placeholder="••••••"
-                        required
-                    />
+                    <div class="relative mt-2" @click="focusPinInput">
+                        <input
+                            id="pos-unlock-pin"
+                            ref="pinInputRef"
+                            :value="pin"
+                            @input="onPinInput"
+                            @focus="pinFocused = true"
+                            @blur="pinFocused = false"
+                            type="password"
+                            inputmode="numeric"
+                            maxlength="6"
+                            pattern="\d{6}"
+                            autocomplete="off"
+                            :disabled="isSubmitting || isLockedOut"
+                            required
+                            class="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            aria-label="PIN Kasir 6 Digit untuk Buka Kunci"
+                        />
+                        <div class="grid grid-cols-6 gap-2">
+                            <div
+                                v-for="(filled, idx) in pinSlots"
+                                :key="idx"
+                                class="flex h-11 items-center justify-center rounded-xl border transition-all duration-150"
+                                :class="[
+                                    isLockedOut
+                                        ? 'border-slate-200 bg-slate-100'
+                                        : pinFocused && idx === String(pin || '').length
+                                          ? 'border-kopdes-600 bg-kopdes-50/40 ring-2 ring-kopdes-500/25'
+                                          : filled
+                                            ? 'border-slate-300 bg-white shadow-sm'
+                                            : 'border-slate-200 bg-slate-50/80',
+                                ]"
+                            >
+                                <span v-if="filled" class="h-2.5 w-2.5 rounded-full bg-slate-900"></span>
+                                <span
+                                    v-else-if="pinFocused && idx === String(pin || '').length"
+                                    class="h-4 w-0.5 animate-pulse rounded-full bg-kopdes-600"
+                                ></span>
+                                <span v-else class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div
                     v-if="errorMessage"
-                    class="rounded-md border border-red-300 bg-red-50 p-2.5 text-xs font-semibold text-red-700"
+                    role="alert"
+                    class="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800"
                 >
-                    {{ errorMessage }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ errorMessage }}</span>
                 </div>
 
-                <PrimaryButton
+                <AppButton
                     type="submit"
-                    class="w-full justify-center bg-red-700 py-2.5 text-sm font-bold hover:bg-red-800"
-                    :class="{ 'opacity-25': isSubmitting || isLockedOut }"
-                    :disabled="isSubmitting || isLockedOut"
+                    variant="primary"
+                    size="lg"
+                    block
+                    :loading="isSubmitting"
+                    :disabled="isLockedOut"
                 >
-                    {{ isSubmitting ? 'Memverifikasi...' : 'Buka Kunci Layar POS' }}
-                </PrimaryButton>
+                    <span>
+                        {{
+                            isLockedOut
+                                ? `Terkunci (${formattedCountdown})`
+                                : isSubmitting
+                                  ? 'Memverifikasi...'
+                                  : 'Buka Kunci Layar POS'
+                        }}
+                    </span>
+                </AppButton>
             </form>
         </div>
     </Modal>

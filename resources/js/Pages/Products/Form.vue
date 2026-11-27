@@ -3,9 +3,7 @@ import { computed } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -60,6 +58,19 @@ const isMemberPriceAboveSelling = computed(() => {
     return Number(form.member_price) > Number(form.selling_price || 0);
 });
 
+const normalMargin = computed(() => Number(form.selling_price || 0) - Number(form.cost_price || 0));
+const memberMargin = computed(() =>
+    hasMemberPrice.value ? Number(form.member_price) - Number(form.cost_price || 0) : null,
+);
+
+const formatRupiah = (value) => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+    }).format(Number(value || 0));
+};
+
 const submit = () => {
     if (isEdit.value) {
         form.put(route('products.update', props.product.id));
@@ -74,23 +85,23 @@ const submit = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 class="text-xl font-bold leading-tight text-gray-900">
+                    <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
                         {{
                             isEdit
                                 ? `Edit Produk Global: ${product.name}`
                                 : 'Tambah Produk ke Katalog Nasional'
                         }}
-                    </h2>
-                    <p class="mt-0.5 text-sm text-gray-500">
+                    </h1>
+                    <p class="mt-0.5 text-sm text-slate-600">
                         Perubahan HPP &amp; Harga Jual tidak akan mengubah laporan laba kotor transaksi historis (Snapshot HPP)
                     </p>
                 </div>
 
                 <Link
                     :href="route('products.index')"
-                    class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                    class="btn-kopdes-secondary !px-3.5 !py-2 !text-xs"
                 >
                     &larr; Kembali ke Katalog
                 </Link>
@@ -98,16 +109,18 @@ const submit = () => {
         </template>
 
         <div class="py-6">
-            <div class="mx-auto max-w-3xl sm:px-6 lg:px-8">
-                <div class="overflow-hidden rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200">
+            <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+                <div class="kopdes-card p-6">
                     <form @submit.prevent="submit" class="space-y-6">
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <InputLabel for="category_id" value="Kategori Produk *" />
+                                <label for="category_id" class="block text-xs font-semibold text-slate-700">
+                                    Kategori Produk <span class="text-rose-600">*</span>
+                                </label>
                                 <select
                                     id="category_id"
                                     v-model="form.category_id"
-                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                                    class="kopdes-input mt-1 cursor-pointer"
                                     required
                                 >
                                     <option value="">-- Pilih Kategori --</option>
@@ -119,15 +132,17 @@ const submit = () => {
                                         {{ cat.name }}
                                     </option>
                                 </select>
-                                <InputError class="mt-2" :message="form.errors.category_id" />
+                                <InputError class="mt-1.5" :message="form.errors.category_id" />
                             </div>
 
                             <div>
-                                <InputLabel for="unit" value="Satuan Jual *" />
+                                <label for="unit" class="block text-xs font-semibold text-slate-700">
+                                    Satuan Jual <span class="text-rose-600">*</span>
+                                </label>
                                 <select
                                     id="unit"
                                     v-model="form.unit"
-                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                                    class="kopdes-input mt-1 cursor-pointer"
                                     required
                                 >
                                     <option
@@ -138,113 +153,133 @@ const submit = () => {
                                         {{ u }}
                                     </option>
                                 </select>
-                                <InputError class="mt-2" :message="form.errors.unit" />
+                                <InputError class="mt-1.5" :message="form.errors.unit" />
                             </div>
                         </div>
 
                         <div>
-                            <InputLabel for="name" value="Nama Produk *" />
-                            <TextInput
+                            <label for="name" class="block text-xs font-semibold text-slate-700">
+                                Nama Produk <span class="text-rose-600">*</span>
+                            </label>
+                            <input
                                 id="name"
                                 v-model="form.name"
                                 type="text"
-                                class="mt-1 block w-full"
+                                class="kopdes-input mt-1"
                                 placeholder="Contoh: Beras Merah Putih Premium 5 Kg"
                                 required
                             />
-                            <InputError class="mt-2" :message="form.errors.name" />
+                            <InputError class="mt-1.5" :message="form.errors.name" />
                         </div>
 
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <InputLabel for="sku" value="Kode SKU Internal Pusat *" />
-                                <TextInput
+                                <label for="sku" class="block text-xs font-semibold text-slate-700">
+                                    Kode SKU Internal Pusat <span class="text-rose-600">*</span>
+                                </label>
+                                <input
                                     id="sku"
                                     v-model="form.sku"
                                     type="text"
-                                    class="mt-1 block w-full font-mono uppercase"
+                                    class="kopdes-input kopdes-num mt-1 uppercase"
                                     placeholder="SKU-BRS-001"
                                     required
                                 />
-                                <InputError class="mt-2" :message="form.errors.sku" />
+                                <InputError class="mt-1.5" :message="form.errors.sku" />
                             </div>
 
                             <div>
-                                <InputLabel
-                                    for="barcode"
-                                    value="Kode Barcode Fisik (EAN-13 / Code-128) *"
-                                />
-                                <TextInput
+                                <label for="barcode" class="block text-xs font-semibold text-slate-700">
+                                    Kode Barcode Fisik (EAN-13 / Code-128) <span class="text-rose-600">*</span>
+                                </label>
+                                <input
                                     id="barcode"
                                     v-model="form.barcode"
                                     type="text"
-                                    class="mt-1 block w-full font-mono"
+                                    class="kopdes-input kopdes-num mt-1"
                                     placeholder="8991234567890"
                                     required
                                 />
-                                <InputError class="mt-2" :message="form.errors.barcode" />
+                                <InputError class="mt-1.5" :message="form.errors.barcode" />
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                            <div>
-                                <InputLabel
-                                    for="cost_price"
-                                    value="Harga Pokok Penjualan / HPP (Rp) *"
-                                />
-                                <TextInput
-                                    id="cost_price"
-                                    v-model="form.cost_price"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="mt-1 block w-full font-mono"
-                                    required
-                                />
-                                <InputError class="mt-2" :message="form.errors.cost_price" />
+                        <!-- Struktur Harga Nasional -->
+                        <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h2 class="text-sm font-bold text-slate-900">
+                                    Struktur Harga Nasional &amp; Margin
+                                </h2>
+                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                    <span class="rounded-full bg-white px-2.5 py-0.5 font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+                                        Margin Normal:
+                                        <strong class="kopdes-num" :class="normalMargin >= 0 ? 'text-emerald-700' : 'text-rose-700'">
+                                            {{ formatRupiah(normalMargin) }}
+                                        </strong>
+                                    </span>
+                                    <span
+                                        v-if="memberMargin !== null"
+                                        class="rounded-full bg-white px-2.5 py-0.5 font-semibold text-slate-700 ring-1 ring-inset ring-slate-200"
+                                    >
+                                        Margin Member:
+                                        <strong class="kopdes-num" :class="memberMargin >= 0 ? 'text-emerald-700' : 'text-amber-700'">
+                                            {{ formatRupiah(memberMargin) }}
+                                        </strong>
+                                    </span>
+                                </div>
                             </div>
 
-                            <div>
-                                <InputLabel
-                                    for="selling_price"
-                                    value="Harga Jual Normal Nasional (Rp) *"
-                                />
-                                <TextInput
-                                    id="selling_price"
-                                    v-model="form.selling_price"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="mt-1 block w-full font-mono"
-                                    required
-                                />
-                                <InputError
-                                    class="mt-2"
-                                    :message="form.errors.selling_price"
-                                />
-                            </div>
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <div>
+                                    <label for="cost_price" class="block text-xs font-semibold text-slate-700">
+                                        HPP (Rp) <span class="text-rose-600">*</span>
+                                    </label>
+                                    <input
+                                        id="cost_price"
+                                        v-model="form.cost_price"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="kopdes-input kopdes-num mt-1 font-bold"
+                                        required
+                                    />
+                                    <InputError class="mt-1.5" :message="form.errors.cost_price" />
+                                </div>
 
-                            <div>
-                                <InputLabel
-                                    for="member_price"
-                                    value="Harga Khusus Member (Rp)"
-                                />
-                                <TextInput
-                                    id="member_price"
-                                    v-model="form.member_price"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="mt-1 block w-full font-mono"
-                                    placeholder="Opsional (kosong = harga normal)"
-                                />
-                                <p class="mt-1 text-xs text-slate-500">
-                                    Berlaku nasional lintas cabang saat kartu member aktif di-tap di POS.
-                                </p>
-                                <InputError
-                                    class="mt-2"
-                                    :message="form.errors.member_price"
-                                />
+                                <div>
+                                    <label for="selling_price" class="block text-xs font-semibold text-slate-700">
+                                        Harga Jual Normal (Rp) <span class="text-rose-600">*</span>
+                                    </label>
+                                    <input
+                                        id="selling_price"
+                                        v-model="form.selling_price"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="kopdes-input kopdes-num mt-1 font-bold"
+                                        required
+                                    />
+                                    <InputError class="mt-1.5" :message="form.errors.selling_price" />
+                                </div>
+
+                                <div>
+                                    <label for="member_price" class="block text-xs font-semibold text-slate-700">
+                                        Harga Khusus Member (Rp)
+                                    </label>
+                                    <input
+                                        id="member_price"
+                                        v-model="form.member_price"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="kopdes-input kopdes-num mt-1 font-bold text-emerald-700"
+                                        placeholder="Opsional"
+                                    />
+                                    <p class="mt-1 text-[11px] text-slate-500">
+                                        Berlaku nasional saat kartu member aktif di-tap di POS.
+                                    </p>
+                                    <InputError class="mt-1.5" :message="form.errors.member_price" />
+                                </div>
                             </div>
                         </div>
 
@@ -252,7 +287,7 @@ const submit = () => {
                         <div
                             v-if="isMemberPriceBelowCost"
                             role="alert"
-                            class="flex items-start gap-3 rounded-lg border border-amber-300 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                            class="flex items-start gap-3 rounded-xl border border-amber-300 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900"
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -282,7 +317,7 @@ const submit = () => {
                         <div
                             v-if="isMemberPriceAboveSelling"
                             role="alert"
-                            class="flex items-start gap-3 rounded-lg border border-rose-300 border-l-4 border-l-rose-600 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+                            class="flex items-start gap-3 rounded-xl border border-rose-300 border-l-4 border-l-rose-600 bg-rose-50 px-4 py-3 text-sm text-rose-900"
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -305,30 +340,26 @@ const submit = () => {
                         </div>
 
                         <div class="flex items-center">
-                            <label class="inline-flex items-center">
+                            <label class="inline-flex cursor-pointer items-center">
                                 <Checkbox
                                     name="is_active"
                                     v-model:checked="form.is_active"
                                 />
-                                <span class="ms-2 text-sm font-medium text-gray-700">
+                                <span class="ms-2 text-sm font-medium text-slate-700">
                                     Produk Aktif (Dapat Dipindai &amp; Dijual di Layar POS Cabang)
                                 </span>
                             </label>
                         </div>
 
-                        <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+                        <div class="flex items-center justify-end gap-2.5 border-t border-slate-200 pt-4">
                             <Link
                                 :href="route('products.index')"
-                                class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                class="btn-kopdes-secondary"
                             >
                                 Batal
                             </Link>
-                            <PrimaryButton
-                                class="bg-red-700 hover:bg-red-800"
-                                :class="{ 'opacity-25': form.processing }"
-                                :disabled="form.processing"
-                            >
-                                {{ isEdit ? 'Simpan Perubahan' : 'Simpan Produk' }}
+                            <PrimaryButton :disabled="form.processing">
+                                {{ form.processing ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan Produk') }}
                             </PrimaryButton>
                         </div>
                     </form>

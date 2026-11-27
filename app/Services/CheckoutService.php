@@ -88,11 +88,12 @@ class CheckoutService
                     return $this->validateExistingIdempotentTransaction($existingInTx, $branch->id, $cashier->id);
                 }
 
-                // Pastikan kasir memiliki shift 'open' aktif pada cabang ini (FR-P2-01 & Task 7.7)
+                // Pastikan kasir memiliki shift 'open' aktif pada cabang ini dengan row-level lock (FR-P2-01, Task 7.7 & SEC-11)
                 $activeShift = CashierShift::query()
                     ->where('cashier_id', $cashier->id)
                     ->where('branch_id', $branch->id)
                     ->where('status', CashierShift::STATUS_OPEN)
+                    ->lockForUpdate()
                     ->first();
 
                 if (! $activeShift) {

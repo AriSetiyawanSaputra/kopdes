@@ -61,7 +61,7 @@ class ProfileTest extends TestCase
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
 
-    public function test_user_can_delete_their_account(): void
+    public function test_self_account_deletion_is_disabled(): void
     {
         $user = User::factory()->create();
 
@@ -71,29 +71,33 @@ class ProfileTest extends TestCase
                 'password' => 'password',
             ]);
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
+        $response->assertForbidden();
 
-        $this->assertGuest();
-        $this->assertNull($user->fresh());
+        $this->assertAuthenticated();
+        $this->assertNotNull($user->fresh());
     }
 
-    public function test_correct_password_must_be_provided_to_delete_account(): void
+    public function test_cashier_cannot_access_admin_profile_or_password_routes(): void
     {
-        $user = User::factory()->create();
+        $cashier = User::factory()->create([
+            'role' => User::ROLE_KASIR,
+            'email' => null,
+            'password' => null,
+            'card_uid' => '9988776655',
+        ]);
 
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->delete('/profile', [
-                'password' => 'wrong-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrors('password')
-            ->assertRedirect('/profile');
-
-        $this->assertNotNull($user->fresh());
+        $this->actingAs($cashier)->get('/profile')->assertForbidden();
+        $this->actingAs($cashier)->patch('/profile', [
+            'name' => 'Kasir Hack',
+            'email' => 'kasir@example.com',
+        ])->assertForbidden();
+        $this->actingAs($cashier)->delete('/profile', [
+            'password' => 'password',
+        ])->assertForbidden();
+        $this->actingAs($cashier)->put('/password', [
+            'current_password' => 'password',
+            'password' => 'new-password',
+            'password_confirmation' => 'new-password',
+        ])->assertForbidden();
     }
 }

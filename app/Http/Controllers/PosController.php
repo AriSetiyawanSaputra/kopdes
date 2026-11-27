@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class PosController extends Controller
@@ -291,13 +292,62 @@ class PosController extends Controller
                 $remoteStatus = strtolower((string) ($apiResponse['transaction_status'] ?? 'cancel'));
                 $cancelPayload = array_merge($apiResponse, [
                     'order_id' => $transaction->invoice_number,
-                    'transaction_status' => $remoteStatus === 'settlement' ? 'settlement' : 'cancel',
+                    'transaction_status' => in_array($remoteStatus, ['settlement', 'capture'], true) ? $remoteStatus : 'cancel',
                     'gross_amount' => $apiResponse['gross_amount'] ?? (string) $transaction->total_amount,
                 ]);
             }
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() !== 404) {
+                // SEC-07: Do NOT blindly cancel locally on 412/5xx/timeout; verify real status at Midtrans first.
+                try {
+                    $statusResponse = $this->midtransService->getTransactionStatus($transaction->invoice_number);
+                    $statusCode = (string) ($statusResponse['status_code'] ?? '');
+                    $remoteStatus = strtolower(trim((string) ($statusResponse['transaction_status'] ?? '')));
+
+                    if ($statusCode !== '404') {
+                        if (in_array($remoteStatus, ['settlement', 'capture', 'expire', 'cancel', 'deny'], true)) {
+                            $statusResponse['order_id'] = $statusResponse['order_id'] ?? $transaction->invoice_number;
+                            $statusResponse['gross_amount'] = $statusResponse['gross_amount'] ?? (string) $transaction->total_amount;
+
+                            $reconciled = $this->reconciliationService->applyStatus(
+                                $statusResponse,
+                                'manual_check',
+                                true
+                            ) ?? $transaction->refresh()->load(['items', 'member.homeBranch', 'branch', 'cashier']);
+
+                            $formatted = $this->formatTransactionForPos($reconciled);
+
+                            return response()->json([
+                                ...$formatted,
+                                'transaction' => $formatted,
+                                'message' => $reconciled->payment_status === 'paid'
+                                    ? "Pembatalan dibatalkan: transaksi {$reconciled->invoice_number} sudah lunas di Midtrans dan otomatis direkonsiliasi."
+                                    : "Status transaksi {$reconciled->invoice_number} diperbarui dari Midtrans: ".strtoupper($reconciled->payment_status).'.',
+                            ]);
+                        }
+
+                        return response()->json([
+                            'message' => 'Midtrans menolak pembatalan transaksi. Silakan periksa status pembayaran kembali.',
+                        ], 502);
+                    }
+                } catch (HttpException $statusEx) {
+                    if ($statusEx->getStatusCode() !== 404) {
+                        return response()->json([
+                            'message' => 'Gagal memverifikasi status pembayaran ke Midtrans. Transaksi tetap berstatus pending.',
+                        ], 502);
+                    }
+                } catch (Throwable) {
+                    return response()->json([
+                        'message' => 'Gagal menghubungi Midtrans untuk membatalkan transaksi. Status tetap pending agar pembayaran tidak hilang.',
+                    ], 502);
+                }
+            }
+            // HTTP 404 means Midtrans has not created a core record yet (e.g. Snap popup closed before channel selection),
+            // so proceeding with local cancellation & reserved_qty release is safe.
         } catch (Throwable) {
-            // If Midtrans has not created a core record yet (e.g. popup closed before channel selection),
-            // proceed with local cancellation & reserved_qty release via MidtransReconciliationService.
+            return response()->json([
+                'message' => 'Gagal menghubungi Midtrans untuk membatalkan transaksi. Status tetap pending.',
+            ], 502);
         }
 
         $reconciled = $this->reconciliationService->applyStatus(
@@ -317,6 +367,7 @@ class PosController extends Controller
 
     /**
      * Format a Transaction model into a complete array suitable for POS UI and ReceiptThermal.vue.
+     * Excludes internal cost/HPP fields and shift IDs (SEC-05 & SEC-06).
      *
      * @return array<string, mixed>
      */
@@ -330,14 +381,12 @@ class PosController extends Controller
             'idempotency_key' => $transaction->idempotency_key,
             'branch_id' => $transaction->branch_id,
             'cashier_id' => $transaction->cashier_id,
-            'cashier_shift_id' => $transaction->cashier_shift_id,
             'member_id' => $transaction->member_id,
             'member_home_branch_id' => $transaction->member_home_branch_id,
             'regular_subtotal' => (float) $transaction->regular_subtotal,
             'member_discount_total' => (float) $transaction->member_discount_total,
             'subtotal' => (float) $transaction->subtotal,
             'total_amount' => (float) $transaction->total_amount,
-            'total_cogs' => (float) $transaction->total_cogs,
             'payment_method' => $transaction->payment_method,
             'payment_status' => $transaction->payment_status,
             'cash_received' => $transaction->cash_received !== null ? (float) $transaction->cash_received : null,
@@ -377,9 +426,7 @@ class PosController extends Controller
                 'unit_price_snapshot' => (float) $item->unit_price_snapshot,
                 'member_discount_snapshot' => (float) $item->member_discount_snapshot,
                 'is_member_price_applied' => (bool) $item->is_member_price_applied,
-                'cost_price_snapshot' => (float) $item->cost_price_snapshot,
                 'subtotal' => (float) $item->subtotal,
-                'subtotal_cogs' => (float) $item->subtotal_cogs,
             ])->values()->all(),
         ];
     }

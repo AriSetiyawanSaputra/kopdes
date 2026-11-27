@@ -2,8 +2,8 @@
 import { computed, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputError from '@/Components/InputError.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -120,9 +120,14 @@ const submitReturn = () => {
         <template #header>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                        Proses Retur &amp; Pembatalan Transaksi
-                    </h1>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Proses Retur &amp; Pembatalan Transaksi
+                        </h1>
+                        <StatusBadge :variant="eligibility.is_eligible ? 'emerald' : 'rose'" size="xs" dot>
+                            {{ eligibility.is_eligible ? `Eligible (Batas ${eligibility.max_days} Hari)` : 'Tidak Eligible' }}
+                        </StatusBadge>
+                    </div>
                     <p class="mt-0.5 text-sm text-slate-600">
                         Invoice: <span class="kopdes-num font-bold text-slate-900">{{ transaction.invoice_number }}</span> &bull;
                         Cabang: <strong class="text-slate-900">{{ transaction.branch?.name }}</strong>
@@ -143,9 +148,12 @@ const submitReturn = () => {
                 <div
                     v-if="!eligibility.is_eligible"
                     role="alert"
-                    class="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900"
+                    class="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900"
                 >
-                    {{ eligibility.reason }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>{{ eligibility.reason }}</span>
                 </div>
 
                 <!-- Ringkasan Transaksi Asal -->
@@ -163,11 +171,15 @@ const submitReturn = () => {
                         </div>
                         <div>
                             <p class="text-xs font-semibold text-slate-500">Metode Bayar Asal</p>
-                            <p class="mt-0.5 font-bold uppercase text-slate-900">{{ transaction.payment_method }}</p>
+                            <div class="mt-1">
+                                <StatusBadge :variant="transaction.payment_method === 'cash' ? 'emerald' : 'indigo'" size="xs">
+                                    {{ transaction.payment_method === 'cash' ? 'Tunai' : 'Midtrans' }}
+                                </StatusBadge>
+                            </div>
                         </div>
                         <div>
                             <p class="text-xs font-semibold text-slate-500">Total Transaksi Asal</p>
-                            <p class="kopdes-num mt-0.5 font-extrabold text-kopdes-700">{{ formatRupiah(transaction.total_amount) }}</p>
+                            <p class="kopdes-num mt-0.5 text-base font-extrabold text-kopdes-700">{{ formatRupiah(transaction.total_amount) }}</p>
                         </div>
                     </div>
                 </section>
@@ -182,7 +194,7 @@ const submitReturn = () => {
                                     1. Pilih Item &amp; Kondisi Barang Retur
                                 </h2>
                                 <p class="text-xs text-slate-600">
-                                    Nilai refund dihitung berdasarkan harga snapshot transaksi asal (batas retur {{ eligibility.max_days }} hari).
+                                    Nilai refund dihitung berdasarkan harga snapshot transaksi asal (batas retur {{ eligibility.max_days }} hari). Pastikan kondisi barang dipilih dengan tepat.
                                 </p>
                             </div>
                             <div v-if="eligibility.is_eligible" class="flex items-center gap-2">
@@ -207,19 +219,25 @@ const submitReturn = () => {
                             <table class="min-w-full divide-y divide-slate-200 text-sm">
                                 <thead class="bg-slate-50">
                                     <tr>
-                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">Pilih</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">Produk &amp; Harga Snapshot</th>
-                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">Beli / Diretur / Sisa</th>
-                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">Qty Retur</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">Kondisi Barang</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-600">Subtotal Refund</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Pilih</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Produk &amp; Harga Snapshot</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Beli / Retur / Sisa</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Qty Retur</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Kondisi Barang (Restock / Rusak)</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Subtotal Refund</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     <tr
                                         v-for="row in itemRows"
                                         :key="row.transaction_item_id"
-                                        :class="row.remaining_returnable_qty === 0 ? 'bg-slate-50 opacity-60' : ''"
+                                        :class="
+                                            row.remaining_returnable_qty === 0
+                                                ? 'bg-slate-50 opacity-60'
+                                                : row.selected
+                                                    ? 'bg-kopdes-50/30'
+                                                    : 'hover:bg-slate-50/70'
+                                        "
                                     >
                                         <td class="px-4 py-3 text-center">
                                             <input
@@ -247,18 +265,48 @@ const submitReturn = () => {
                                                 min="1"
                                                 :max="row.remaining_returnable_qty"
                                                 :disabled="!row.selected || row.remaining_returnable_qty === 0"
-                                                class="kopdes-input kopdes-num mx-auto w-20 text-center"
+                                                class="kopdes-input kopdes-num mx-auto w-20 text-center font-bold"
                                             />
                                         </td>
                                         <td class="px-4 py-3">
-                                            <select
-                                                v-model="row.condition"
-                                                :disabled="!row.selected || row.remaining_returnable_qty === 0"
-                                                class="kopdes-input cursor-pointer"
+                                            <!-- Tactile Segmented Toggle: Layak Jual vs Rusak (anti salah pilih) -->
+                                            <div
+                                                class="inline-flex rounded-xl border border-slate-200 bg-slate-100/80 p-1"
+                                                :class="!row.selected || row.remaining_returnable_qty === 0 ? 'pointer-events-none opacity-50' : ''"
                                             >
-                                                <option value="restockable">Layak Jual (Restock ke Inventori)</option>
-                                                <option value="damaged">Rusak / Cacat (Tidak Restock)</option>
-                                            </select>
+                                                <button
+                                                    type="button"
+                                                    :disabled="!row.selected || row.remaining_returnable_qty === 0"
+                                                    @click="row.condition = 'restockable'"
+                                                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all"
+                                                    :class="
+                                                        row.condition === 'restockable'
+                                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                                            : 'text-slate-600 hover:text-slate-900'
+                                                    "
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Layak Jual (Restock)
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    :disabled="!row.selected || row.remaining_returnable_qty === 0"
+                                                    @click="row.condition = 'damaged'"
+                                                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all"
+                                                    :class="
+                                                        row.condition === 'damaged'
+                                                            ? 'bg-rose-600 text-white shadow-sm'
+                                                            : 'text-slate-600 hover:text-slate-900'
+                                                    "
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Rusak (Tidak Restock)
+                                                </button>
+                                            </div>
                                         </td>
                                         <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-slate-900">
                                             {{ row.selected ? formatRupiah(row.unit_price_snapshot * row.qty_returned) : '-' }}
@@ -282,7 +330,7 @@ const submitReturn = () => {
 
                             <div>
                                 <label for="ret-reason" class="block text-xs font-semibold text-slate-700">
-                                    Alasan Retur / Pembatalan *
+                                    Alasan Retur / Pembatalan <span class="text-rose-600">*</span>
                                 </label>
                                 <textarea
                                     id="ret-reason"
@@ -296,45 +344,70 @@ const submitReturn = () => {
                                 <InputError :message="form.errors.reason" class="mt-1" />
                             </div>
 
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <button
-                                    type="button"
-                                    @click="form.refund_method = 'cash_refund'"
-                                    class="cursor-pointer rounded-lg border-2 p-3 text-left transition-colors"
-                                    :class="
-                                        form.refund_method === 'cash_refund'
-                                            ? 'border-kopdes-700 bg-kopdes-50 text-kopdes-900'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    "
-                                >
-                                    <div class="text-sm font-extrabold">Tunai (Cash Refund)</div>
-                                    <div class="mt-0.5 text-xs text-slate-600">
-                                        Uang dikembalikan tunai dari Kas Cabang atau Laci Shift Aktif
-                                    </div>
-                                </button>
+                            <div>
+                                <span class="mb-2 block text-xs font-semibold text-slate-700">
+                                    Pilih Metode Pengembalian Dana <span class="text-rose-600">*</span>
+                                </span>
+                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        @click="form.refund_method = 'cash_refund'"
+                                        class="cursor-pointer rounded-xl border-2 p-3.5 text-left transition-all"
+                                        :class="
+                                            form.refund_method === 'cash_refund'
+                                                ? 'border-kopdes-700 bg-kopdes-50/80 text-kopdes-900 ring-2 ring-kopdes-500/20'
+                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                        "
+                                    >
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm font-extrabold">Tunai (Cash Refund)</span>
+                                            <span
+                                                class="flex h-5 w-5 items-center justify-center rounded-full border"
+                                                :class="form.refund_method === 'cash_refund' ? 'border-kopdes-700 bg-kopdes-700 text-white' : 'border-slate-300'"
+                                            >
+                                                <svg v-if="form.refund_method === 'cash_refund'" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <div class="mt-1 text-xs text-slate-600">
+                                            Uang dikembalikan tunai dari Kas Cabang atau Laci Shift Aktif
+                                        </div>
+                                    </button>
 
-                                <button
-                                    type="button"
-                                    @click="form.refund_method = 'manual_transfer'"
-                                    class="cursor-pointer rounded-lg border-2 p-3 text-left transition-colors"
-                                    :class="
-                                        form.refund_method === 'manual_transfer'
-                                            ? 'border-blue-700 bg-blue-50 text-blue-900'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    "
-                                >
-                                    <div class="text-sm font-extrabold">Transfer Manual</div>
-                                    <div class="mt-0.5 text-xs text-slate-600">
-                                        Refund manual via transfer bank / e-wallet dengan nomor referensi
-                                    </div>
-                                </button>
+                                    <button
+                                        type="button"
+                                        @click="form.refund_method = 'manual_transfer'"
+                                        class="cursor-pointer rounded-xl border-2 p-3.5 text-left transition-all"
+                                        :class="
+                                            form.refund_method === 'manual_transfer'
+                                                ? 'border-indigo-700 bg-indigo-50/80 text-indigo-900 ring-2 ring-indigo-500/20'
+                                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                        "
+                                    >
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm font-extrabold">Transfer Manual</span>
+                                            <span
+                                                class="flex h-5 w-5 items-center justify-center rounded-full border"
+                                                :class="form.refund_method === 'manual_transfer' ? 'border-indigo-700 bg-indigo-700 text-white' : 'border-slate-300'"
+                                            >
+                                                <svg v-if="form.refund_method === 'manual_transfer'" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <div class="mt-1 text-xs text-slate-600">
+                                            Refund manual via transfer bank / e-wallet dengan nomor referensi
+                                        </div>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Sumber Kas jika Tunai -->
-                            <div v-if="form.refund_method === 'cash_refund'" class="space-y-3 rounded-lg bg-slate-50 p-4">
+                            <div v-if="form.refund_method === 'cash_refund'" class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
                                 <div>
                                     <label for="ret-cash-source" class="block text-xs font-semibold text-slate-700">
-                                        Sumber Uang Tunai *
+                                        Sumber Uang Tunai <span class="text-rose-600">*</span>
                                     </label>
                                     <select
                                         id="ret-cash-source"
@@ -349,7 +422,7 @@ const submitReturn = () => {
 
                                 <div v-if="form.cash_source === 'active_shift'">
                                     <label for="ret-shift-id" class="block text-xs font-semibold text-slate-700">
-                                        Pilih Shift Kasir Terbuka di Cabang Ini *
+                                        Pilih Shift Kasir Terbuka di Cabang Ini <span class="text-rose-600">*</span>
                                     </label>
                                     <select
                                         v-if="openShifts.length > 0"
@@ -371,9 +444,9 @@ const submitReturn = () => {
                             </div>
 
                             <!-- Referensi jika Transfer Manual -->
-                            <div v-else class="rounded-lg bg-blue-50/70 p-4">
-                                <label for="ret-reference" class="block text-xs font-semibold text-slate-700">
-                                    Nomor Referensi / Keterangan Transfer *
+                            <div v-else class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+                                <label for="ret-reference" class="block text-xs font-semibold text-indigo-900">
+                                    Nomor Referensi / Keterangan Transfer <span class="text-rose-600">*</span>
                                 </label>
                                 <input
                                     id="ret-reference"
@@ -395,19 +468,19 @@ const submitReturn = () => {
                                     Ringkasan Retur
                                 </h2>
                                 <dl class="mt-4 space-y-2.5 text-sm">
-                                    <div class="flex justify-between rounded-lg bg-slate-50 px-3 py-2">
+                                    <div class="flex justify-between rounded-xl bg-slate-50 px-3.5 py-2">
                                         <dt class="text-slate-600">Item Dipilih</dt>
                                         <dd class="kopdes-num font-bold text-slate-900">{{ selectedItems.length }} baris</dd>
                                     </div>
-                                    <div class="flex justify-between rounded-lg bg-emerald-50/70 px-3 py-2">
+                                    <div class="flex justify-between rounded-xl border border-emerald-200/80 bg-emerald-50/70 px-3.5 py-2">
                                         <dt class="text-emerald-900">HPP Kembali ke Stok (Layak Jual)</dt>
                                         <dd class="kopdes-num font-bold text-emerald-700">{{ formatRupiah(estimatedRestockedCogs) }}</dd>
                                     </div>
-                                    <div class="flex justify-between rounded-lg bg-amber-50/70 px-3 py-2">
+                                    <div class="flex justify-between rounded-xl border border-amber-200/80 bg-amber-50/70 px-3.5 py-2">
                                         <dt class="text-amber-900">HPP Barang Rusak (Tidak Restock)</dt>
                                         <dd class="kopdes-num font-bold text-amber-800">{{ formatRupiah(estimatedDamagedCogs) }}</dd>
                                     </div>
-                                    <div class="flex justify-between rounded-lg border border-kopdes-200 bg-kopdes-50 px-3 py-3">
+                                    <div class="flex justify-between rounded-xl border border-kopdes-200 bg-kopdes-50 px-3.5 py-3">
                                         <dt class="font-extrabold text-kopdes-900">TOTAL REFUND</dt>
                                         <dd class="kopdes-num text-lg font-extrabold text-kopdes-700">{{ formatRupiah(estimatedTotalRefund) }}</dd>
                                     </div>

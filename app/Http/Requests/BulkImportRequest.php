@@ -83,6 +83,29 @@ class BulkImportRequest extends FormRequest
                 $ext = strtolower((string) $file->getClientOriginalExtension());
                 if (! in_array($ext, ['xlsx', 'csv'], true)) {
                     $validator->errors()->add('file', 'Format file wajib berupa Excel (.xlsx) atau CSV (.csv).');
+
+                    return;
+                }
+
+                // SEC-09: Validasi MIME server-side sesuai tipe file untuk mencegah upload polyglot/XML/HTML
+                $detectedMime = strtolower((string) $file->getMimeType());
+                $allowedMimes = [
+                    'xlsx' => [
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'application/zip',
+                        'application/x-zip-compressed',
+                    ],
+                    'csv' => [
+                        'text/csv',
+                        'text/plain',
+                        'application/csv',
+                        'application/vnd.ms-excel',
+                        'text/x-csv',
+                    ],
+                ];
+
+                if (! in_array($detectedMime, $allowedMimes[$ext], true)) {
+                    $validator->errors()->add('file', 'Tipe konten file (MIME) tidak sesuai dengan format Excel (.xlsx) atau CSV (.csv) yang diizinkan.');
                 }
             },
         ];

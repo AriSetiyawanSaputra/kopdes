@@ -12,6 +12,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Response;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -327,9 +328,9 @@ class ReportExportService
                 $netProfitVal = (float) ($b['net_profit'] ?? 0);
 
                 $sheet1->setCellValue("A{$row}", $index + 1);
-                $sheet1->setCellValue("B{$row}", (string) ($b['branch_code'] ?? '-'));
-                $sheet1->setCellValue("C{$row}", (string) ($b['branch_name'] ?? '-'));
-                $sheet1->setCellValue("D{$row}", (string) ($b['regency_name'] ?? '-'));
+                $this->setSafeTextCell($sheet1, "B{$row}", (string) ($b['branch_code'] ?? '-'));
+                $this->setSafeTextCell($sheet1, "C{$row}", (string) ($b['branch_name'] ?? '-'));
+                $this->setSafeTextCell($sheet1, "D{$row}", (string) ($b['regency_name'] ?? '-'));
                 $sheet1->setCellValue("E{$row}", (int) ($b['total_transactions'] ?? 0));
                 $sheet1->setCellValue("F{$row}", (float) ($b['gross_revenue'] ?? $b['total_revenue'] ?? 0));
                 $sheet1->setCellValue("G{$row}", (float) ($b['total_returns'] ?? 0));
@@ -472,15 +473,15 @@ class ReportExportService
                 }
 
                 $sheet2->setCellValue("A{$row2}", $index + 1);
-                $sheet2->setCellValue("B{$row2}", (string) ($tx['invoice_number'] ?? '-'));
-                $sheet2->setCellValue("C{$row2}", (string) ($tx['paid_at'] ?? '-'));
-                $sheet2->setCellValue("D{$row2}", (string) $branchCode);
-                $sheet2->setCellValue("E{$row2}", (string) $branchName);
-                $sheet2->setCellValue("F{$row2}", (string) $cashierName);
-                $sheet2->setCellValue("G{$row2}", $member ? (string) ($member['member_code'] ?? '-') : '-');
-                $sheet2->setCellValue("H{$row2}", $member ? (string) ($member['name'] ?? '-') : 'Pembeli Umum');
-                $sheet2->setCellValue("I{$row2}", $member ? (string) ($member['home_branch_name'] ?? '-') : '-');
-                $sheet2->setCellValue("J{$row2}", $paymentLabel);
+                $this->setSafeTextCell($sheet2, "B{$row2}", (string) ($tx['invoice_number'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "C{$row2}", (string) ($tx['paid_at'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "D{$row2}", (string) $branchCode);
+                $this->setSafeTextCell($sheet2, "E{$row2}", (string) $branchName);
+                $this->setSafeTextCell($sheet2, "F{$row2}", (string) $cashierName);
+                $this->setSafeTextCell($sheet2, "G{$row2}", $member ? (string) ($member['member_code'] ?? '-') : '-');
+                $this->setSafeTextCell($sheet2, "H{$row2}", $member ? (string) ($member['name'] ?? '-') : 'Pembeli Umum');
+                $this->setSafeTextCell($sheet2, "I{$row2}", $member ? (string) ($member['home_branch_name'] ?? '-') : '-');
+                $this->setSafeTextCell($sheet2, "J{$row2}", $paymentLabel);
                 $sheet2->setCellValue("K{$row2}", (int) ($tx['items_count'] ?? 0));
                 $sheet2->setCellValue("L{$row2}", (float) ($tx['member_discount_total'] ?? 0));
                 $sheet2->setCellValue("M{$row2}", (float) ($tx['total_amount'] ?? 0));
@@ -643,8 +644,8 @@ class ReportExportService
 
         foreach ($categories as $idx => $cat) {
             $sheet1->setCellValue("A{$row}", $idx + 1);
-            $sheet1->setCellValue("B{$row}", (string) ($cat['category'] ?? '-'));
-            $sheet1->setCellValue("C{$row}", (string) ($cat['label'] ?? '-'));
+            $this->setSafeTextCell($sheet1, "B{$row}", (string) ($cat['category'] ?? '-'));
+            $this->setSafeTextCell($sheet1, "C{$row}", (string) ($cat['label'] ?? '-'));
             $sheet1->setCellValue("D{$row}", (int) ($cat['count'] ?? 0));
             $sheet1->setCellValue("E{$row}", (float) ($cat['total_amount'] ?? 0));
             $sheet1->setCellValue("F{$row}", "=IF(E{$totalRowNum1}>0,(E{$row}/E{$totalRowNum1})*100,0)");
@@ -736,13 +737,13 @@ class ReportExportService
                 $recorder = $exp['user'] ?? null;
 
                 $sheet2->setCellValue("A{$row2}", $idx + 1);
-                $sheet2->setCellValue("B{$row2}", (string) ($exp['expense_date'] ?? '-'));
-                $sheet2->setCellValue("C{$row2}", (string) ($branch['code'] ?? '-'));
-                $sheet2->setCellValue("D{$row2}", (string) ($branch['name'] ?? '-'));
-                $sheet2->setCellValue("E{$row2}", (string) ($exp['category_label'] ?? '-'));
-                $sheet2->setCellValue("F{$row2}", (string) ($exp['description'] ?? '-'));
-                $sheet2->setCellValue("G{$row2}", (string) ($exp['notes'] ?? '-'));
-                $sheet2->setCellValue("H{$row2}", (string) ($recorder['name'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "B{$row2}", (string) ($exp['expense_date'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "C{$row2}", (string) ($branch['code'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "D{$row2}", (string) ($branch['name'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "E{$row2}", (string) ($exp['category_label'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "F{$row2}", (string) ($exp['description'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "G{$row2}", (string) ($exp['notes'] ?? '-'));
+                $this->setSafeTextCell($sheet2, "H{$row2}", (string) ($recorder['name'] ?? '-'));
                 $sheet2->setCellValue("I{$row2}", (float) ($exp['amount'] ?? 0));
 
                 $this->styleDataRow($sheet2, $row2, 9, isAlt: $idx % 2 === 1);
@@ -1000,11 +1001,11 @@ class ReportExportService
                 $statusLabel = ($m['status'] ?? 'active') === 'active' ? 'Aktif' : 'Nonaktif';
 
                 $sheet->setCellValue("A{$row}", $index + 1);
-                $sheet->setCellValue("B{$row}", (string) ($m['member_code'] ?? '-'));
-                $sheet->setCellValue("C{$row}", (string) ($m['name'] ?? '-'));
-                $sheet->setCellValue("D{$row}", $statusLabel);
-                $sheet->setCellValue("E{$row}", (string) $homeCode);
-                $sheet->setCellValue("F{$row}", (string) $homeName);
+                $this->setSafeTextCell($sheet, "B{$row}", (string) ($m['member_code'] ?? '-'));
+                $this->setSafeTextCell($sheet, "C{$row}", (string) ($m['name'] ?? '-'));
+                $this->setSafeTextCell($sheet, "D{$row}", $statusLabel);
+                $this->setSafeTextCell($sheet, "E{$row}", (string) $homeCode);
+                $this->setSafeTextCell($sheet, "F{$row}", (string) $homeName);
                 $sheet->setCellValue("G{$row}", (int) ($m['paid_transactions_count'] ?? 0));
                 $sheet->setCellValue("H{$row}", (float) ($m['home_branch_spend'] ?? 0));
                 $sheet->setCellValue("I{$row}", (float) ($m['other_branch_spend'] ?? 0));
@@ -1190,13 +1191,13 @@ class ReportExportService
                 $varVal = (float) ($s['variance'] ?? 0);
 
                 $sheet->setCellValue("A{$row}", $idx + 1);
-                $sheet->setCellValue("B{$row}", (string) ($s['shift_code'] ?? '-'));
-                $sheet->setCellValue("C{$row}", (string) (($s['branch']['name'] ?? '-').' ('.($s['branch']['code'] ?? '-').')'));
-                $sheet->setCellValue("D{$row}", (string) ($s['cashier']['name'] ?? '-'));
-                $sheet->setCellValue("E{$row}", (string) ($s['opened_at'] ?? '-'));
-                $sheet->setCellValue("F{$row}", (string) ($s['closed_at'] ?? '-'));
-                $sheet->setCellValue("G{$row}", $isClosed ? 'Closed' : 'Open');
-                $sheet->setCellValue("H{$row}", ! empty($s['is_force_closed']) ? 'Ya' : 'Tidak');
+                $this->setSafeTextCell($sheet, "B{$row}", (string) ($s['shift_code'] ?? '-'));
+                $this->setSafeTextCell($sheet, "C{$row}", (string) (($s['branch']['name'] ?? '-').' ('.($s['branch']['code'] ?? '-').')'));
+                $this->setSafeTextCell($sheet, "D{$row}", (string) ($s['cashier']['name'] ?? '-'));
+                $this->setSafeTextCell($sheet, "E{$row}", (string) ($s['opened_at'] ?? '-'));
+                $this->setSafeTextCell($sheet, "F{$row}", (string) ($s['closed_at'] ?? '-'));
+                $this->setSafeTextCell($sheet, "G{$row}", $isClosed ? 'Closed' : 'Open');
+                $this->setSafeTextCell($sheet, "H{$row}", ! empty($s['is_force_closed']) ? 'Ya' : 'Tidak');
                 $sheet->setCellValue("I{$row}", (float) ($s['opening_cash'] ?? 0));
                 $sheet->setCellValue("J{$row}", $isClosed ? (float) ($s['cash_sales_total'] ?? 0) : 0);
                 $sheet->setCellValue("K{$row}", $isClosed ? (float) ($s['midtrans_sales_total'] ?? 0) : 0);
@@ -1370,18 +1371,18 @@ class ReportExportService
                     : (string) ($ret['refund_reference'] ?? '-');
 
                 $sheet->setCellValue("A{$row}", $idx + 1);
-                $sheet->setCellValue("B{$row}", (string) ($ret['return_number'] ?? '-'));
-                $sheet->setCellValue("C{$row}", (string) ($ret['returned_at'] ?? '-'));
-                $sheet->setCellValue("D{$row}", (string) ($ret['invoice_number'] ?? '-'));
-                $sheet->setCellValue("E{$row}", (string) (($ret['branch']['name'] ?? '-').' ('.($ret['branch']['code'] ?? '-').')'));
-                $sheet->setCellValue("F{$row}", (string) ($ret['processed_by'] ?? '-'));
-                $sheet->setCellValue("G{$row}", ($ret['return_type'] ?? 'partial') === 'full' ? 'Full Void' : 'Parsial');
-                $sheet->setCellValue("H{$row}", $isCash ? 'Tunai' : 'Transfer Manual');
-                $sheet->setCellValue("I{$row}", $sourceOrRef);
+                $this->setSafeTextCell($sheet, "B{$row}", (string) ($ret['return_number'] ?? '-'));
+                $this->setSafeTextCell($sheet, "C{$row}", (string) ($ret['returned_at'] ?? '-'));
+                $this->setSafeTextCell($sheet, "D{$row}", (string) ($ret['invoice_number'] ?? '-'));
+                $this->setSafeTextCell($sheet, "E{$row}", (string) (($ret['branch']['name'] ?? '-').' ('.($ret['branch']['code'] ?? '-').')'));
+                $this->setSafeTextCell($sheet, "F{$row}", (string) ($ret['processed_by'] ?? '-'));
+                $this->setSafeTextCell($sheet, "G{$row}", ($ret['return_type'] ?? 'partial') === 'full' ? 'Full Void' : 'Parsial');
+                $this->setSafeTextCell($sheet, "H{$row}", $isCash ? 'Tunai' : 'Transfer Manual');
+                $this->setSafeTextCell($sheet, "I{$row}", $sourceOrRef);
                 $sheet->setCellValue("J{$row}", (float) ($ret['total_refund_amount'] ?? 0));
                 $sheet->setCellValue("K{$row}", (float) ($ret['total_restocked_cogs'] ?? 0));
                 $sheet->setCellValue("L{$row}", (float) ($ret['total_damaged_cogs'] ?? 0));
-                $sheet->setCellValue("M{$row}", (string) ($ret['reason'] ?? '-'));
+                $this->setSafeTextCell($sheet, "M{$row}", (string) ($ret['reason'] ?? '-'));
 
                 $this->styleDataRow($sheet, $row, $colCount, isAlt: $idx % 2 === 1);
                 $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -1526,7 +1527,7 @@ class ReportExportService
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isHtml5ParserEnabled', true);
         $options->set('isRemoteEnabled', false);
-        $options->set('isPhpEnabled', true);
+        $options->set('isPhpEnabled', false);
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html, 'UTF-8');
@@ -1578,11 +1579,43 @@ class ReportExportService
         ]);
     }
 
+    /**
+     * Neutralize spreadsheet formula injection characters (=, +, -, @, \t, \r) and store as explicit string (SEC-03).
+     */
+    private function sanitizeSpreadsheetText(?string $value): string
+    {
+        $text = (string) ($value ?? '');
+        if ($text === '') {
+            return '';
+        }
+
+        $trimmed = ltrim($text, " \t\r\n");
+        $firstChar = $trimmed !== '' ? $trimmed[0] : '';
+        $rawFirstChar = $text[0];
+
+        if (in_array($firstChar, ['=', '+', '-', '@'], true)
+            || in_array($rawFirstChar, ['=', '+', '-', '@', "\t", "\r"], true)
+        ) {
+            return "'".$text;
+        }
+
+        return $text;
+    }
+
+    private function setSafeTextCell(Worksheet $sheet, string $coordinate, ?string $value): void
+    {
+        $sheet->setCellValueExplicit(
+            $coordinate,
+            $this->sanitizeSpreadsheetText($value),
+            DataType::TYPE_STRING
+        );
+    }
+
     private function applyHeaderBanner(Worksheet $sheet, string $orgTitle, string $reportTitle, int $colCount): void
     {
         $lastCol = Coordinate::stringFromColumnIndex($colCount);
 
-        $sheet->setCellValue('A1', $orgTitle);
+        $this->setSafeTextCell($sheet, 'A1', $orgTitle);
         $sheet->mergeCells("A1:{$lastCol}1");
         $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
@@ -1591,7 +1624,7 @@ class ReportExportService
         ]);
         $sheet->getRowDimension(1)->setRowHeight(28);
 
-        $sheet->setCellValue('A2', $reportTitle);
+        $this->setSafeTextCell($sheet, 'A2', $reportTitle);
         $sheet->mergeCells("A2:{$lastCol}2");
         $sheet->getStyle("A2:{$lastCol}2")->applyFromArray([
             'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => self::COLOR_PRIMARY]],
@@ -1641,14 +1674,14 @@ class ReportExportService
 
         $row = $startRow;
         foreach ($rows as [$leftLabel, $leftVal, $rightLabel, $rightVal]) {
-            $sheet->setCellValue("A{$row}", $leftLabel);
+            $this->setSafeTextCell($sheet, "A{$row}", $leftLabel);
             $sheet->mergeCells("A{$row}:B{$row}");
-            $sheet->setCellValue("C{$row}", ': '.$leftVal);
+            $this->setSafeTextCell($sheet, "C{$row}", ': '.$this->sanitizeSpreadsheetText($leftVal));
             $sheet->mergeCells("C{$row}:F{$row}");
 
-            $sheet->setCellValue("G{$row}", $rightLabel);
+            $this->setSafeTextCell($sheet, "G{$row}", $rightLabel);
             $sheet->mergeCells("G{$row}:H{$row}");
-            $sheet->setCellValue("I{$row}", ': '.$rightVal);
+            $this->setSafeTextCell($sheet, "I{$row}", ': '.$this->sanitizeSpreadsheetText($rightVal));
             if ($colCount > 9) {
                 $sheet->mergeCells("I{$row}:{$lastCol}{$row}");
             }

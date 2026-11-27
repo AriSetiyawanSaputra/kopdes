@@ -3,6 +3,9 @@ import { computed, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import StatCard from '@/Components/StatCard.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -134,9 +137,14 @@ const exportUrl = (format) => {
         <template #header>
             <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                        Laporan SHU &amp; Rekap Belanja Anggota
-                    </h1>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Laporan SHU &amp; Rekap Belanja Anggota
+                        </h1>
+                        <StatusBadge variant="kopdes" dot>
+                            Basis Laba Bersih
+                        </StatusBadge>
+                    </div>
                     <p class="mt-0.5 text-sm text-slate-600">
                         Perhitungan Dasar SHU berbasis Laba Bersih (Laba Kotor &minus; Biaya Operasional) &amp; partisipasi belanja lintas cabang
                     </p>
@@ -314,16 +322,16 @@ const exportUrl = (format) => {
                                 Rincian Komponen Dasar SHU (Basis Laba Bersih Pasca-Retur)
                             </h2>
                             <p class="text-xs text-slate-600">
-                                Omzet Bruto &minus; Retur = Omzet Bersih &minus; HPP Bersih = Laba Kotor &minus; Biaya Operasional = Dasar SHU (kerugian barang rusak otomatis membebani Laba Kotor)
+                                Omzet Bruto &minus; Retur = Omzet Bersih &minus; HPP Bersih = Laba Kotor &minus; Biaya Operasional = Dasar SHU
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="kopdes-num inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800 ring-1 ring-inset ring-blue-200">
-                                Hemat Member: {{ formatRupiah(financials.total_member_discount) }}
-                            </span>
-                            <span class="kopdes-num inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 ring-1 ring-inset ring-amber-200">
-                                Margin Bersih: {{ financials.net_margin_percentage.toFixed(2) }}%
-                            </span>
+                            <StatusBadge variant="indigo">
+                                Hemat Member: <span class="kopdes-num ms-1 font-bold">{{ formatRupiah(financials.total_member_discount) }}</span>
+                            </StatusBadge>
+                            <StatusBadge variant="amber">
+                                Margin Bersih: <span class="kopdes-num ms-1 font-bold">{{ financials.net_margin_percentage.toFixed(2) }}%</span>
+                            </StatusBadge>
                         </div>
                     </div>
 
@@ -402,38 +410,67 @@ const exportUrl = (format) => {
                     <!-- Rincian 4 Pos Alokasi SHU Dinamis (dari Pengaturan Sistem) -->
                     <div
                         v-if="financials.shu_allocations"
-                        class="mt-3 grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-3 sm:grid-cols-4"
+                        class="mt-4 space-y-3 border-t border-slate-100 pt-4"
                     >
-                        <div class="rounded-lg bg-kopdes-50/70 px-3 py-2 text-xs">
-                            <span class="font-semibold text-kopdes-900">
-                                Jasa Usaha Anggota ({{ Number(financials.shu_allocations.member_usaha?.percent || 0).toFixed(0) }}%)
-                            </span>
-                            <div class="kopdes-num mt-0.5 font-extrabold text-kopdes-700">
-                                {{ formatRupiah(financials.shu_allocations.member_usaha?.amount) }}
-                            </div>
+                        <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                            <div
+                                class="h-full bg-kopdes-700"
+                                :style="{ width: `${Number(financials.shu_allocations.member_usaha?.percent || 0)}%` }"
+                                title="Jasa Usaha Anggota"
+                            ></div>
+                            <div
+                                class="h-full bg-indigo-600"
+                                :style="{ width: `${Number(financials.shu_allocations.reserve?.percent || 0)}%` }"
+                                title="Dana Cadangan"
+                            ></div>
+                            <div
+                                class="h-full bg-emerald-600"
+                                :style="{ width: `${Number(financials.shu_allocations.management?.percent || 0)}%` }"
+                                title="Dana Pengurus"
+                            ></div>
+                            <div
+                                class="h-full bg-amber-500"
+                                :style="{ width: `${Number(financials.shu_allocations.education?.percent || 0)}%` }"
+                                title="Pendidikan & Sosial"
+                            ></div>
                         </div>
-                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs">
-                            <span class="font-semibold text-slate-700">
-                                Dana Cadangan ({{ Number(financials.shu_allocations.reserve?.percent || 0).toFixed(0) }}%)
-                            </span>
-                            <div class="kopdes-num mt-0.5 font-bold text-slate-900">
-                                {{ formatRupiah(financials.shu_allocations.reserve?.amount) }}
+
+                        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                            <div class="rounded-xl border border-kopdes-200/80 bg-kopdes-50/70 px-3.5 py-2.5 text-xs">
+                                <div class="flex items-center gap-1.5 font-semibold text-kopdes-900">
+                                    <span class="h-2 w-2 rounded-full bg-kopdes-700"></span>
+                                    Jasa Usaha ({{ Number(financials.shu_allocations.member_usaha?.percent || 0).toFixed(0) }}%)
+                                </div>
+                                <div class="kopdes-num mt-1 text-sm font-extrabold text-kopdes-700">
+                                    {{ formatRupiah(financials.shu_allocations.member_usaha?.amount) }}
+                                </div>
                             </div>
-                        </div>
-                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs">
-                            <span class="font-semibold text-slate-700">
-                                Dana Pengurus ({{ Number(financials.shu_allocations.management?.percent || 0).toFixed(0) }}%)
-                            </span>
-                            <div class="kopdes-num mt-0.5 font-bold text-slate-900">
-                                {{ formatRupiah(financials.shu_allocations.management?.amount) }}
+                            <div class="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3.5 py-2.5 text-xs">
+                                <div class="flex items-center gap-1.5 font-semibold text-indigo-900">
+                                    <span class="h-2 w-2 rounded-full bg-indigo-600"></span>
+                                    Dana Cadangan ({{ Number(financials.shu_allocations.reserve?.percent || 0).toFixed(0) }}%)
+                                </div>
+                                <div class="kopdes-num mt-1 text-sm font-bold text-slate-900">
+                                    {{ formatRupiah(financials.shu_allocations.reserve?.amount) }}
+                                </div>
                             </div>
-                        </div>
-                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs">
-                            <span class="font-semibold text-slate-700">
-                                Pendidikan &amp; Sosial ({{ Number(financials.shu_allocations.education?.percent || 0).toFixed(0) }}%)
-                            </span>
-                            <div class="kopdes-num mt-0.5 font-bold text-slate-900">
-                                {{ formatRupiah(financials.shu_allocations.education?.amount) }}
+                            <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 px-3.5 py-2.5 text-xs">
+                                <div class="flex items-center gap-1.5 font-semibold text-emerald-900">
+                                    <span class="h-2 w-2 rounded-full bg-emerald-600"></span>
+                                    Dana Pengurus ({{ Number(financials.shu_allocations.management?.percent || 0).toFixed(0) }}%)
+                                </div>
+                                <div class="kopdes-num mt-1 text-sm font-bold text-slate-900">
+                                    {{ formatRupiah(financials.shu_allocations.management?.amount) }}
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-amber-100 bg-amber-50/60 px-3.5 py-2.5 text-xs">
+                                <div class="flex items-center gap-1.5 font-semibold text-amber-900">
+                                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                                    Pendidikan &amp; Sosial ({{ Number(financials.shu_allocations.education?.percent || 0).toFixed(0) }}%)
+                                </div>
+                                <div class="kopdes-num mt-1 text-sm font-bold text-slate-900">
+                                    {{ formatRupiah(financials.shu_allocations.education?.amount) }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -441,46 +478,70 @@ const exportUrl = (format) => {
 
                 <!-- Summary Strip Partisipasi Member -->
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="kopdes-card p-4">
-                        <div class="text-xs font-semibold text-slate-500">Anggota Bertransaksi (Paid)</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-slate-900">
-                            {{ formatNumber(summary.active_shopping_members) }} / {{ formatNumber(summary.total_members) }}
-                        </div>
-                        <div class="text-xs text-slate-500">
-                            Total {{ formatNumber(summary.total_transactions) }} transaksi lunas
-                        </div>
-                    </div>
+                    <StatCard
+                        label="Anggota Bertransaksi"
+                        :value="`${formatNumber(summary.active_shopping_members)} / ${formatNumber(summary.total_members)}`"
+                        :helper="`Total ${formatNumber(summary.total_transactions)} transaksi lunas`"
+                        accent="kopdes"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <div class="kopdes-card p-4">
-                        <div class="text-xs font-semibold text-slate-500">Belanja di KOPDES Asal</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-slate-900">
-                            {{ formatRupiah(summary.total_home_branch_spend) }}
-                        </div>
-                    </div>
+                    <StatCard
+                        label="Belanja di KOPDES Asal"
+                        :value="formatRupiah(summary.total_home_branch_spend)"
+                        helper="Transaksi di cabang terdaftar"
+                        accent="slate"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <div class="kopdes-card p-4">
-                        <div class="text-xs font-semibold text-slate-500">Belanja Lintas Cabang (KOPDES Lain)</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-blue-700">
-                            {{ formatRupiah(summary.total_other_branch_spend) }}
-                        </div>
-                    </div>
+                    <StatCard
+                        label="Belanja Lintas Cabang"
+                        :value="formatRupiah(summary.total_other_branch_spend)"
+                        helper="Portabilitas kartu di KOPDES lain"
+                        accent="indigo"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <div class="kopdes-card p-4">
-                        <div class="text-xs font-semibold text-slate-500">Total Akumulasi Belanja Anggota</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-emerald-700">
-                            {{ formatRupiah(summary.total_accumulated_spend) }}
-                        </div>
-                    </div>
+                    <StatCard
+                        label="Akumulasi Belanja Anggota"
+                        :value="formatRupiah(summary.total_accumulated_spend)"
+                        :helper="`Est. SHU Total ${formatRupiah(totalEstimatedShu)}`"
+                        accent="emerald"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
+                        </template>
+                    </StatCard>
                 </div>
 
                 <!-- Tabel Rekap Partisipasi Belanja Member & Estimasi SHU (FR-17) -->
                 <div class="kopdes-card overflow-hidden">
-                    <div class="border-b border-slate-200 px-5 py-3.5">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
                         <h2 class="text-sm font-bold text-slate-900">
                             Daftar Partisipasi Belanja Anggota (KOPDES Asal vs. Lintas Cabang) &amp; Estimasi Porsi SHU
                         </h2>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ formatNumber(members.length) }} Anggota</span>
+                        </StatusBadge>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div v-if="members.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -524,12 +585,9 @@ const exportUrl = (format) => {
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="font-semibold text-slate-900">{{ m.name }}</div>
-                                        <span
-                                            v-if="m.status !== 'active'"
-                                            class="inline-flex items-center rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700"
-                                        >
+                                        <StatusBadge v-if="m.status !== 'active'" variant="rose" size="xs" class="mt-0.5">
                                             Kartu Nonaktif
-                                        </span>
+                                        </StatusBadge>
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="font-medium text-slate-900">
@@ -545,7 +603,7 @@ const exportUrl = (format) => {
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right text-slate-800">
                                         {{ formatRupiah(m.home_branch_spend) }}
                                     </td>
-                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-semibold text-blue-700">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-semibold text-indigo-700">
                                         {{ formatRupiah(m.other_branch_spend) }}
                                     </td>
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-extrabold text-emerald-700">
@@ -558,16 +616,8 @@ const exportUrl = (format) => {
                                         {{ formatRupiah(m.estimated_shu_share) }}
                                     </td>
                                 </tr>
-                                <tr v-if="members.length === 0">
-                                    <td
-                                        colspan="9"
-                                        class="px-4 py-8 text-center text-sm text-slate-500"
-                                    >
-                                        Belum ada data anggota pada filter wilayah ini.
-                                    </td>
-                                </tr>
                             </tbody>
-                            <tfoot v-if="members.length > 0" class="border-t-2 border-slate-200 bg-slate-50">
+                            <tfoot class="border-t-2 border-slate-200 bg-slate-50">
                                 <tr>
                                     <td colspan="3" class="px-4 py-3 text-right text-xs font-extrabold uppercase tracking-wider text-slate-700">
                                         Total Keseluruhan ({{ formatNumber(summary.total_members) }} Anggota)
@@ -578,7 +628,7 @@ const exportUrl = (format) => {
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-slate-900">
                                         {{ formatRupiah(summary.total_home_branch_spend) }}
                                     </td>
-                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-blue-700">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-indigo-700">
                                         {{ formatRupiah(summary.total_other_branch_spend) }}
                                     </td>
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-extrabold text-emerald-700">
@@ -594,6 +644,11 @@ const exportUrl = (format) => {
                             </tfoot>
                         </table>
                     </div>
+                    <EmptyState
+                        v-else
+                        title="Belum ada data anggota"
+                        description="Belum ada anggota KOPDES yang sesuai dengan filter wilayah dan pencarian ini."
+                    />
                 </div>
             </div>
         </div>

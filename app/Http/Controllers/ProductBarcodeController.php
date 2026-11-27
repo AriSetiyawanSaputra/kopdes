@@ -16,6 +16,13 @@ class ProductBarcodeController extends Controller
      */
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
+        // SEC-13: Tolak akses cetak barcode untuk kasir ketika sesi layar POS sedang terkunci
+        if ($user?->isCashier() && (bool) $request->session()->get('pos_locked', false)) {
+            abort(403, 'Layar POS sedang terkunci. Silakan buka kunci terlebih dahulu menggunakan PIN kasir.');
+        }
+
         $products = Product::query()
             ->where('is_active', true)
             ->with(['category:id,name'])

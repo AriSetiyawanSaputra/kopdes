@@ -43,10 +43,10 @@ Tema desain menggabungkan **Otoritas Finansial & Kepercayaan Koperasi** (`Slate 
 
 | Status / Domain | Teks | Latar Lembut | Aksen / Bar | Penggunaan |
 | :--- | :--- | :--- | :--- | :--- |
-| **Laba / Lunas (`paid`) / Tunai** | `text-emerald-700` (`#047857`) | `bg-emerald-50` (`#ECFDF5`) | `bg-emerald-600` | Laba kotor, status lunas, transaksi tunai, export Excel |
-| **Non-Tunai / Midtrans / Lintas Cabang** | `text-blue-700` (`#1D4ED8`) | `bg-blue-50` (`#EFF6FF`) | `bg-blue-600` | Transaksi Midtrans, belanja lintas cabang, info |
-| **Margin / Peringatan / Pending** | `text-amber-700` (`#B45309`) | `bg-amber-50` (`#FFFBEB`) | `bg-amber-500` | Persentase margin, stok mendekati `min_stock`, transaksi `pending` |
-| **Bahaya / Nonaktif / Stok Habis** | `text-rose-700` (`#BE123C`) | `bg-rose-50` (`#FFF1F2`) | `bg-rose-600` | Aksi destruktif, status nonaktif, error validasi |
+| **Laba / Lunas (`paid`) / Aktif / Tunai** | `text-emerald-700` (`#047857`) | `bg-emerald-50` (`#ECFDF5`) | `bg-emerald-600` | Laba kotor/bersih, status lunas, transaksi tunai, export Excel |
+| **Info / Midtrans / Lintas Cabang** | `text-indigo-700` (`#4338CA`) | `bg-indigo-50` (`#EEF2FF`) | `bg-indigo-600` | Transaksi non-tunai Midtrans, belanja lintas cabang, informasi sistem |
+| **Margin / Peringatan / Pending / Demo** | `text-amber-800` (`#92400E`) | `bg-amber-50` (`#FFFBEB`) | `bg-amber-500` | Persentase margin, stok mendekati `min_stock`, transaksi `pending`, penanda Mode Demo |
+| **Bahaya / Batal / Selisih Kurang / Error** | `text-rose-700` (`#BE123C`) | `bg-rose-50` (`#FFF1F2`) | `bg-rose-600` | Aksi destruktif, retur/void, selisih kas kurang, error validasi |
 
 ---
 
@@ -87,19 +87,21 @@ Semua tombol WAJIB memiliki `cursor-pointer`, `transition-colors duration-200`, 
 
 Seluruh halaman backoffice admin menggunakan **[AuthenticatedLayout.vue](../resources/js/Layouts/AuthenticatedLayout.vue)**:
 
-1. **Sidebar Kiri Tetap (`w-64`, `bg-slate-900 text-slate-200`) pada Desktop (`lg:fixed lg:inset-y-0`):**
-   - **Header Brand:** Logo emblem KOPDES Merah Putih (`bg-kopdes-700`) + teks `KOPDES` & subjudul `Merah Putih • Keuangan`.
+1. **Sidebar Kiri Collapsible (`w-64` expanded ↔ `w-[76px]` collapsed, `bg-slate-900 text-slate-200`) pada Desktop (`lg:fixed lg:inset-y-0`):**
+   - **Header Brand:** Logo institusi dinamis (`app_settings.institution_logo_url`) atau emblem perisai KOPDES Merah Putih (`bg-kopdes-700`) + nama institusi & subjudul `FinTech & Retail`.
    - **Grup Menu Terstruktur (Role-Aware):**
      - `UTAMA`: Dashboard Keuangan
-     - `LAPORAN & SHU`: Penjualan & Laba Kotor, Rekap Member (SHU)
-     - `INVENTORI`: Stok Cabang, Audit Log Stok
+     - `OPERASIONAL & STOK`: Shift Kasir, Retur & Void, Stok Cabang, Audit Log Stok
+     - `KEUANGAN & LAPORAN`: Penjualan & Laba Rugi, Biaya Operasional, Rekap Member (SHU)
      - `MASTER DATA`: Cabang KOPDES, Anggota (Member), Katalog Produk, Kategori Produk (`admin_nasional`), Pengguna & Kasir
-   - **Active Menu State:** Latar `bg-kopdes-700 text-white shadow-sm` dengan ikon SVG berwarna putih solid/crisp.
+     - `SISTEM`: Pengaturan Sistem (`admin_nasional`), Audit Trail
+   - **Active Menu State:** Latar `bg-kopdes-700 text-white shadow-sm` dengan ikon SVG crisp.
    - **Sidebar Footer:** Kartu identitas Role & Cakupan Wilayah aktif (`Nasional`, Provinsi, Kabupaten, atau Nama & Kode Cabang).
-2. **Mobile Drawer (`< lg`):** Tombol hamburger di topbar membuka sidebar *slide-over* dengan backdrop `bg-slate-900/60`.
+2. **Mobile Drawer (`< lg`):** Tombol hamburger di topbar membuka sidebar *slide-over* dengan backdrop `bg-slate-900/60 backdrop-blur-sm`.
 3. **Sticky Topbar (`h-16 bg-white/95 backdrop-blur border-b border-slate-200`):**
-   - Menampilkan judul konteks, badge cakupan wilayah aktif, serta dropdown profil pengguna (`Profil Akun` & `Keluar`).
-4. **Kontainer Konten:** `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6`, jarak antar bagian konsisten `space-y-6`.
+   - Menampilkan tombol collapse sidebar (desktop), konteks wilayah/cabang aktif, badge role, penanda halus Mode Demo (`APP_DEMO_MODE=true`), shortcut Terminal Kasir POS, serta dropdown profil pengguna (`Profil Akun` & `Keluar`).
+4. **Komponen UI Dasar (`resources/js/Components/`):**
+   - `AppButton.vue`, `StatusBadge.vue`, `AppCard.vue`, `StatCard.vue`, `Modal.vue`, `EmptyState.vue`, `AppPagination.vue` (bebas `v-html`), `ToastNotification.vue`.
 
 ---
 

@@ -11,6 +11,7 @@ use App\Models\Regency;
 use App\Models\User;
 use App\Services\ActivityLogService;
 use App\Services\UserManagementService;
+use App\Support\DemoAccountGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -183,6 +184,10 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
+        if (DemoAccountGuard::isProtectedDemoUser($user)) {
+            abort(403, 'Data dan kredensial akun demo bawaan dilindungi saat Mode Demo aktif.');
+        }
+
         $updated = $this->userManagementService->update($request->user(), $user, $request->validated());
 
         return redirect()
@@ -196,6 +201,10 @@ class UserController extends Controller
     public function toggleActive(Request $request, User $user): RedirectResponse
     {
         Gate::authorize('toggleActive', $user);
+
+        if (DemoAccountGuard::isProtectedDemoUser($user)) {
+            abort(403, 'Status aktif akun demo bawaan tidak dapat diubah saat Mode Demo aktif.');
+        }
 
         $oldActive = (bool) $user->is_active;
         $updated = $this->userManagementService->toggleActive($user);

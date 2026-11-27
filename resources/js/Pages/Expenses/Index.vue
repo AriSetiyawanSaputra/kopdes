@@ -6,6 +6,9 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import Modal from '@/Components/Modal.vue';
 import InputError from '@/Components/InputError.vue';
+import StatCard from '@/Components/StatCard.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -220,12 +223,9 @@ const activeCategoryBreakdown = computed(() =>
                         <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
                             Biaya Operasional Cabang
                         </h1>
-                        <span
-                            v-if="!permissions.can_manage"
-                            class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200"
-                        >
+                        <StatusBadge v-if="!permissions.can_manage" variant="slate">
                             Mode Baca (Audit Wilayah)
-                        </span>
+                        </StatusBadge>
                     </div>
                     <p class="mt-1 text-sm text-slate-600">
                         Periode aktif:
@@ -405,57 +405,57 @@ const activeCategoryBreakdown = computed(() =>
 
                 <!-- KPI Ringkasan Biaya Operasional -->
                 <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-rose-600"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Total Biaya Operasional
-                        </p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-rose-700">
-                            {{ formatRupiah(summary.total_amount) }}
-                        </p>
-                        <p class="mt-2 text-xs text-slate-500">
-                            Periode {{ filters.start_date }} s.d. {{ filters.end_date }}
-                        </p>
-                    </div>
+                    <StatCard
+                        label="Total Biaya Operasional"
+                        :value="formatRupiah(summary.total_amount)"
+                        :helper="`Periode ${filters.start_date} s.d. ${filters.end_date}`"
+                        accent="rose"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-kopdes-700"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Jumlah Catatan Biaya
-                        </p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-slate-900">
-                            {{ formatNumber(summary.total_count) }}
-                        </p>
-                        <p class="mt-2 text-xs text-slate-500">
-                            Transaksi pengeluaran aktif
-                        </p>
-                    </div>
+                    <StatCard
+                        label="Jumlah Catatan Biaya"
+                        :value="formatNumber(summary.total_count)"
+                        helper="Transaksi pengeluaran aktif"
+                        accent="kopdes"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-amber-500"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Rata-rata per Catatan
-                        </p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-slate-900">
-                            {{ formatRupiah(summary.average_amount) }}
-                        </p>
-                        <p class="mt-2 text-xs text-slate-500">
-                            Nominal rata-rata pengeluaran
-                        </p>
-                    </div>
+                    <StatCard
+                        label="Rata-rata per Catatan"
+                        :value="formatRupiah(summary.average_amount)"
+                        helper="Nominal rata-rata pengeluaran"
+                        accent="amber"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                        </template>
+                    </StatCard>
 
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-blue-600"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Kategori Aktif
-                        </p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-blue-700">
-                            {{ formatNumber(summary.active_categories_count) }} / {{ categories.length }}
-                        </p>
-                        <p class="mt-2 text-xs text-slate-500">
-                            Pos pengeluaran terpakai
-                        </p>
-                    </div>
+                    <StatCard
+                        label="Kategori Aktif"
+                        :value="`${formatNumber(summary.active_categories_count)} / ${categories.length}`"
+                        helper="Pos pengeluaran terpakai"
+                        accent="indigo"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                        </template>
+                    </StatCard>
                 </section>
 
                 <!-- Rekap Subtotal per Kategori -->
@@ -484,16 +484,16 @@ const activeCategoryBreakdown = computed(() =>
                                 <span class="text-xs font-bold text-slate-800">
                                     {{ cat.label }}
                                 </span>
-                                <span class="kopdes-num rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200">
-                                    {{ Number(cat.percentage || 0).toFixed(1) }}%
-                                </span>
+                                <StatusBadge variant="rose" size="xs">
+                                    <span class="kopdes-num">{{ Number(cat.percentage || 0).toFixed(1) }}%</span>
+                                </StatusBadge>
                             </div>
                             <div class="mt-1.5 flex items-baseline justify-between">
                                 <span class="kopdes-num text-base font-extrabold text-rose-700">
                                     {{ formatRupiah(cat.total_amount) }}
                                 </span>
                                 <span class="text-xs text-slate-500">
-                                    {{ formatNumber(cat.count) }} catatan
+                                    <span class="kopdes-num font-semibold text-slate-700">{{ formatNumber(cat.count) }}</span> catatan
                                 </span>
                             </div>
                             <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
@@ -505,12 +505,11 @@ const activeCategoryBreakdown = computed(() =>
                         </div>
                     </div>
 
-                    <div
+                    <EmptyState
                         v-else
-                        class="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500"
-                    >
-                        Belum ada catatan biaya operasional pada periode dan filter ini.
-                    </div>
+                        title="Belum ada distribusi biaya"
+                        description="Belum ada catatan biaya operasional pada periode dan filter ini."
+                    />
                 </section>
 
                 <!-- Tabel Rincian Biaya Operasional -->
@@ -524,9 +523,12 @@ const activeCategoryBreakdown = computed(() =>
                                 Seluruh pencatatan bersifat audit-safe (penghapusan menggunakan soft-delete)
                             </p>
                         </div>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ formatNumber(expenses.length) }} Catatan</span>
+                        </StatusBadge>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div v-if="expenses.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -574,9 +576,9 @@ const activeCategoryBreakdown = computed(() =>
                                         </div>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3.5">
-                                        <span class="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800 ring-1 ring-inset ring-slate-200">
+                                        <StatusBadge variant="slate" size="xs">
                                             {{ exp.category_label }}
-                                        </span>
+                                        </StatusBadge>
                                     </td>
                                     <td class="px-4 py-3.5">
                                         <div class="font-semibold text-slate-900">
@@ -600,30 +602,22 @@ const activeCategoryBreakdown = computed(() =>
                                             <button
                                                 type="button"
                                                 @click="openEditModal(exp)"
-                                                class="cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
+                                                class="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                             >
                                                 Edit
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="confirmDelete(exp)"
-                                                class="cursor-pointer rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                                                class="cursor-pointer rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
                                             >
                                                 Hapus
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="expenses.length === 0">
-                                    <td
-                                        :colspan="permissions.can_manage ? 7 : 6"
-                                        class="px-4 py-10 text-center text-sm text-slate-500"
-                                    >
-                                        Belum ada catatan biaya operasional pada periode dan filter ini.
-                                    </td>
-                                </tr>
                             </tbody>
-                            <tfoot v-if="expenses.length > 0" class="border-t-2 border-slate-200 bg-slate-50">
+                            <tfoot class="border-t-2 border-slate-200 bg-slate-50">
                                 <tr>
                                     <td
                                         colspan="5"
@@ -639,6 +633,18 @@ const activeCategoryBreakdown = computed(() =>
                             </tfoot>
                         </table>
                     </div>
+
+                    <EmptyState
+                        v-else
+                        title="Belum ada catatan biaya operasional"
+                        description="Catat pengeluaran rutin cabang (listrik, air, honor, ATK) agar perhitungan Laba Bersih & Dasar SHU selalu akurat."
+                    >
+                        <template v-if="permissions.can_manage" #actions>
+                            <PrimaryButton type="button" @click="openCreateModal">
+                                + Catat Biaya Pertama
+                            </PrimaryButton>
+                        </template>
+                    </EmptyState>
                 </section>
             </div>
         </div>
@@ -744,19 +750,29 @@ const activeCategoryBreakdown = computed(() =>
                     </div>
 
                     <div>
-                        <label for="form-amount" class="block text-xs font-semibold text-slate-700">
-                            Nominal (Rp) <span class="text-rose-600">*</span>
-                        </label>
-                        <input
-                            id="form-amount"
-                            v-model="expenseForm.amount"
-                            type="number"
-                            min="1"
-                            step="any"
-                            required
-                            placeholder="250000"
-                            class="kopdes-input kopdes-num mt-1"
-                        />
+                        <div class="flex items-center justify-between">
+                            <label for="form-amount" class="block text-xs font-semibold text-slate-700">
+                                Nominal Pengeluaran <span class="text-rose-600">*</span>
+                            </label>
+                            <span v-if="Number(expenseForm.amount) > 0" class="kopdes-num text-xs font-bold text-rose-700">
+                                {{ formatRupiah(expenseForm.amount) }}
+                            </span>
+                        </div>
+                        <div class="relative mt-1">
+                            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-bold text-slate-500">
+                                Rp
+                            </span>
+                            <input
+                                id="form-amount"
+                                v-model="expenseForm.amount"
+                                type="number"
+                                min="1"
+                                step="any"
+                                required
+                                placeholder="250000"
+                                class="kopdes-input kopdes-num pl-9 font-bold"
+                            />
+                        </div>
                         <InputError :message="expenseForm.errors.amount" class="mt-1" />
                     </div>
 

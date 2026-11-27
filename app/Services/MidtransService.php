@@ -104,6 +104,13 @@ class MidtransService
             );
         }
 
+        if ($response->status() === 404) {
+            throw new HttpException(
+                404,
+                "Transaksi {$orderId} belum tercatat pada Midtrans Core API."
+            );
+        }
+
         if ($response->failed()) {
             throw new HttpException(
                 502,
@@ -138,6 +145,23 @@ class MidtransService
             );
         }
 
+        $body = (array) $response->json();
+        $bodyStatusCode = (string) ($body['status_code'] ?? '');
+
+        if ($response->status() === 404 || $bodyStatusCode === '404') {
+            throw new HttpException(
+                404,
+                "Transaksi {$orderId} belum tercatat di Midtrans."
+            );
+        }
+
+        if ($response->status() === 412 || $bodyStatusCode === '412') {
+            throw new HttpException(
+                412,
+                "Midtrans menolak pembatalan transaksi {$orderId} (status tidak dapat diubah)."
+            );
+        }
+
         if ($response->failed()) {
             throw new HttpException(
                 502,
@@ -145,7 +169,7 @@ class MidtransService
             );
         }
 
-        return (array) $response->json();
+        return $body;
     }
 
     /**
@@ -160,6 +184,11 @@ class MidtransService
         ?string $grossAmount = null,
         ?string $signatureKey = null,
     ): bool {
+        $serverKey = trim((string) config('services.midtrans.server_key', ''));
+        if ($serverKey === '') {
+            return false;
+        }
+
         if (is_array($payloadOrOrderId)) {
             $orderId = (string) ($payloadOrOrderId['order_id'] ?? '');
             $statusCode = (string) ($payloadOrOrderId['status_code'] ?? '');
@@ -175,8 +204,6 @@ class MidtransService
         if ($orderId === '' || $statusCode === '' || $grossAmount === '' || $signatureKey === '') {
             return false;
         }
-
-        $serverKey = (string) config('services.midtrans.server_key', '');
 
         $expectedSignature = hash(
             'sha512',

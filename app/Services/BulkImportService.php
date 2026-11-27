@@ -525,12 +525,16 @@ class BulkImportService
         try {
             if ($ext === 'csv') {
                 $reader = IOFactory::createReader('Csv');
+                $reader->setReadDataOnly(true);
                 $spreadsheet = $reader->load($path);
             } else {
-                $spreadsheet = IOFactory::load($path);
+                // SEC-09: Gunakan reader Xlsx eksplisit (bukan IOFactory::load) + data-only tanpa evaluasi formula
+                $reader = IOFactory::createReader('Xlsx');
+                $reader->setReadDataOnly(true);
+                $spreadsheet = $reader->load($path);
             }
             $sheet = $spreadsheet->getActiveSheet();
-            $rawRows = $sheet->toArray(null, true, false, false);
+            $rawRows = $sheet->toArray(null, false, false, false);
             $spreadsheet->disconnectWorksheets();
         } catch (Throwable $e) {
             throw ValidationException::withMessages([

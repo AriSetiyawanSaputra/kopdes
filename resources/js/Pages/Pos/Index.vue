@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import CloseShiftModal from '@/Pages/Pos/Partials/CloseShiftModal.vue';
 import HardwareSimulatorPopover from '@/Pages/Pos/Partials/HardwareSimulatorPopover.vue';
 import MemberLookupModal from '@/Pages/Pos/Partials/MemberLookupModal.vue';
@@ -69,7 +70,9 @@ const idempotencyKey = ref(null);
 
 const barcodeQuery = ref('');
 const catalogSearch = ref('');
+const selectedCategory = ref('ALL');
 const barcodeInputRef = ref(null);
+const isBarcodeFocused = ref(false);
 
 const activeModal = ref(props.posLocked ? 'lock' : (!props.activeShift ? 'open-shift' : null));
 const isLocked = ref(Boolean(props.posLocked));
@@ -99,19 +102,49 @@ const { lockPosSession, resetIdleTimer } = useIdleLock({
     },
 });
 
+const categoryTabs = computed(() => {
+    const names = new Set();
+    catalogProducts.value.forEach((p) => {
+        if (p.category_name) {
+            names.add(p.category_name);
+        }
+    });
+    return ['ALL', ...Array.from(names).sort()];
+});
+
 const filteredCatalog = computed(() => {
     const q = catalogSearch.value.trim().toLowerCase();
-    if (!q) {
-        return catalogProducts.value;
-    }
 
     return catalogProducts.value.filter((p) => {
+        const matchesCat =
+            selectedCategory.value === 'ALL' || p.category_name === selectedCategory.value;
+        if (!matchesCat) {
+            return false;
+        }
+        if (!q) {
+            return true;
+        }
         return (
             p.name.toLowerCase().includes(q) ||
             p.sku.toLowerCase().includes(q) ||
             p.barcode.toLowerCase().includes(q)
         );
     });
+});
+
+const cartQtyByProductId = computed(() => {
+    const map = {};
+    cartItems.value.forEach((item) => {
+        map[item.product_id] = item.qty;
+    });
+    return map;
+});
+
+const isCrossBranchMember = computed(() => {
+    if (!selectedMember.value) {
+        return false;
+    }
+    return Number(selectedMember.value.home_branch_id) !== Number(props.branch.id);
 });
 
 const totalItemsCount = computed(() => {
@@ -733,518 +766,694 @@ onBeforeUnmount(() => {
 <template>
     <Head :title="`POS Kasir — ${branch.name}`" />
 
-    <!-- Area Layar Utama POS (Tidak ikut tercetak saat @media print) -->
+    <!-- Area Layar Utama POS (Terisolasi penuh dari @media print) -->
     <div
-        class="no-print flex min-h-screen flex-col bg-gray-100"
+        class="no-print print:hidden flex min-h-screen flex-col bg-slate-100 text-slate-900 lg:h-screen lg:flex-row lg:overflow-hidden"
         @click="focusBarcodeInputIfIdle"
     >
-        <!-- Top Header POS -->
-        <header class="border-b border-red-900 bg-red-800 px-4 py-3 text-white shadow">
-            <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="rounded-lg bg-white px-2.5 py-1 text-sm font-black tracking-tight text-red-800">
-                        POS KOPDES
-                    </div>
-                    <div>
-                        <h1 class="text-base font-extrabold leading-tight">
-                            {{ branch.name }}
-                            <span class="font-mono text-xs font-normal text-red-200">
-                                ({{ branch.code }})
-                            </span>
-                        </h1>
-                        <p class="flex flex-wrap items-center gap-2 text-xs text-red-200">
-                            <span>Kasir Aktif: <strong class="text-white">{{ currentCashier.name }}</strong></span>
-                            <span
-                                v-if="currentShift"
-                                class="inline-flex items-center rounded bg-emerald-500/20 px-1.5 py-0.5 font-mono text-[11px] font-bold text-emerald-100 ring-1 ring-emerald-400/40"
-                            >
-                                Shift: {{ currentShift.shift_code }}
-                            </span>
-                            <span
-                                v-else
-                                class="inline-flex items-center rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-bold text-amber-100 ring-1 ring-amber-300/40"
-                            >
-                                Shift Belum Dibuka
-                            </span>
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Toolbar Shortcut & Pengaturan Struk -->
-                <div class="flex flex-wrap items-center gap-2">
-                    <!-- Ukuran Kertas Thermal -->
-                    <div class="flex items-center rounded-md bg-red-900/80 px-2.5 py-1 text-xs">
-                        <span class="me-1.5 text-red-200">Struk:</span>
-                        <button
-                            type="button"
-                            @click.stop="changePaperWidth('58mm')"
-                            class="rounded px-2 py-0.5 font-bold"
-                            :class="
-                                paperWidth === '58mm'
-                                    ? 'bg-white text-red-800'
-                                    : 'text-red-200 hover:text-white'
-                            "
-                        >
-                            58mm
-                        </button>
-                        <button
-                            type="button"
-                            @click.stop="changePaperWidth('80mm')"
-                            class="rounded px-2 py-0.5 font-bold"
-                            :class="
-                                paperWidth === '80mm'
-                                    ? 'bg-white text-red-800'
-                                    : 'text-red-200 hover:text-white'
-                            "
-                        >
-                            80mm
-                        </button>
+        <!-- ============================================================ -->
+        <!-- PANEL KIRI (~62%): Header POS, Scanner Barcode & Katalog      -->
+        <!-- ============================================================ -->
+        <section class="flex min-w-0 flex-1 flex-col lg:h-full lg:w-[62%] lg:flex-none lg:overflow-hidden">
+            <!-- Header POS Kompak -->
+            <header class="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-card">
+                <div class="flex flex-wrap items-center justify-between gap-2.5">
+                    <!-- Brand, Cabang, Kasir & Shift Status -->
+                    <div class="flex min-w-0 items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-kopdes-600 to-kopdes-800 text-white shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h1 class="truncate text-sm font-extrabold tracking-tight text-slate-900 sm:text-base">
+                                    {{ branch.name }}
+                                </h1>
+                                <span class="kopdes-num rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                                    {{ branch.code }}
+                                </span>
+                                <StatusBadge v-if="isDemoMode" variant="amber" size="xs" dot pulse>
+                                    Demo
+                                </StatusBadge>
+                            </div>
+                            <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <span>Kasir: <strong class="font-semibold text-slate-800">{{ currentCashier.name }}</strong></span>
+                                <span aria-hidden="true">&bull;</span>
+                                <StatusBadge v-if="currentShift" variant="emerald" size="xs" dot>
+                                    <span class="kopdes-num">{{ currentShift.shift_code }}</span>
+                                </StatusBadge>
+                                <StatusBadge v-else variant="amber" size="xs" dot>
+                                    Shift Belum Dibuka
+                                </StatusBadge>
+                            </div>
+                        </div>
                     </div>
 
-                    <button
-                        v-if="!currentShift"
-                        type="button"
-                        @click.stop="activeModal = 'open-shift'"
-                        class="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-400 px-3 py-1.5 text-xs font-extrabold text-gray-950 hover:bg-amber-300"
-                    >
-                        <span>Buka Shift</span>
-                    </button>
-
-                    <button
-                        v-if="currentShift"
-                        type="button"
-                        @click.stop="activeModal = 'cash-movement'"
-                        class="inline-flex items-center gap-1.5 rounded-md border border-red-600 bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600"
-                    >
-                        <span>Kas Laci</span>
-                        <kbd class="rounded bg-red-900 px-1.5 py-0.5 font-mono text-[10px]">F4</kbd>
-                    </button>
-
-                    <button
-                        v-if="currentShift"
-                        type="button"
-                        @click.stop="activeModal = 'close-shift'"
-                        class="inline-flex items-center gap-1.5 rounded-md border border-emerald-500 bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600"
-                    >
-                        <span>Tutup Shift</span>
-                        <kbd class="rounded bg-emerald-900 px-1.5 py-0.5 font-mono text-[10px]">F10</kbd>
-                    </button>
-
-                    <Link
-                        :href="route('products.barcode-labels')"
-                        class="inline-flex items-center gap-1.5 rounded-md border border-red-600 bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600"
-                    >
-                        <span>Label Barcode</span>
-                    </Link>
-
-                    <button
-                        type="button"
-                        @click.stop="activeModal = 'member'"
-                        class="inline-flex items-center gap-1.5 rounded-md border border-red-600 bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600"
-                    >
-                        <span>Tap Member</span>
-                        <kbd class="rounded bg-red-900 px-1.5 py-0.5 font-mono text-[10px]">F2</kbd>
-                    </button>
-
-                    <button
-                        type="button"
-                        @click.stop="
-                            refreshTransactionsLists();
-                            activeModal = 'drawer';
-                        "
-                        class="inline-flex items-center gap-1.5 rounded-md border border-red-600 bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600"
-                    >
-                        <span>Pending &amp; Riwayat</span>
-                        <span
-                            v-if="pendingTransactions.length > 0"
-                            class="rounded-full bg-amber-400 px-1.5 py-0.2 font-mono text-[11px] font-black text-gray-900"
+                    <!-- Toolbar Aksi POS & Shortcut Badges -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <!-- Toggle Kertas Thermal 58mm / 80mm -->
+                        <div
+                            class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 p-0.5 text-[11px]"
+                            title="Lebar Kertas Thermal"
                         >
-                            {{ pendingTransactions.length }}
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        @click.stop="lockPosSession"
-                        class="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-bold text-gray-950 hover:bg-amber-400"
-                    >
-                        <span>Kunci Layar</span>
-                        <kbd class="rounded bg-amber-700 px-1.5 py-0.5 font-mono text-[10px] text-white">F12</kbd>
-                    </button>
-
-                    <button
-                        type="button"
-                        @click.stop="handleLogout"
-                        class="rounded-md border border-red-500 bg-red-950/60 px-3 py-1.5 text-xs font-bold text-red-100 hover:bg-red-950"
-                    >
-                        Keluar
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Banner Notifikasi / Error Barcode -->
-        <div v-if="alertBanner" class="mx-auto mt-3 w-full max-w-7xl px-4">
-            <div
-                class="flex items-center justify-between rounded-lg border px-4 py-2.5 text-xs font-semibold shadow-sm"
-                :class="{
-                    'border-red-300 bg-red-50 text-red-800': alertBanner.type === 'error',
-                    'border-amber-300 bg-amber-50 text-amber-800': alertBanner.type === 'warning',
-                    'border-green-300 bg-green-50 text-green-800': alertBanner.type === 'success',
-                    'border-blue-300 bg-blue-50 text-blue-800': alertBanner.type === 'info',
-                }"
-            >
-                <span>{{ alertBanner.message }}</span>
-                <button
-                    type="button"
-                    @click.stop="alertBanner = null"
-                    class="ms-4 font-bold underline"
-                >
-                    Tutup
-                </button>
-            </div>
-        </div>
-
-        <!-- Workspace Utama: Kiri (Scanner & Katalog) | Kanan (Member & Keranjang) -->
-        <main class="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-12">
-            <!-- Panel Kiri: Input Scanner Barcode Terisolasi + Katalog Cepat -->
-            <div class="flex flex-col gap-4 lg:col-span-7">
-                <!-- Box Scanner Barcode -->
-                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                    <form @submit.prevent="handleBarcodeSubmit">
-                        <div class="flex items-center justify-between">
-                            <label
-                                for="pos-barcode-scanner-input"
-                                class="text-xs font-extrabold uppercase tracking-wider text-gray-700"
-                            >
-                                Scan Barcode Produk (USB Barcode Scanner — Auto-Focus)
-                            </label>
-                            <span
-                                class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold"
+                            <button
+                                type="button"
+                                @click.stop="changePaperWidth('58mm')"
+                                class="kopdes-num cursor-pointer rounded-lg px-2 py-1 font-bold transition-colors"
                                 :class="
-                                    activeModal === null
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-gray-100 text-gray-500'
+                                    paperWidth === '58mm'
+                                        ? 'bg-white text-kopdes-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800'
                                 "
                             >
-                                {{ activeModal === null ? 'Scanner Siap' : 'Scanner Nonaktif (Modal Aktif)' }}
+                                58mm
+                            </button>
+                            <button
+                                type="button"
+                                @click.stop="changePaperWidth('80mm')"
+                                class="kopdes-num cursor-pointer rounded-lg px-2 py-1 font-bold transition-colors"
+                                :class="
+                                    paperWidth === '80mm'
+                                        ? 'bg-white text-kopdes-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                "
+                            >
+                                80mm
+                            </button>
+                        </div>
+
+                        <!-- Shift Controls -->
+                        <button
+                            v-if="!currentShift"
+                            type="button"
+                            @click.stop="activeModal = 'open-shift'"
+                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-amber-400"
+                        >
+                            Buka Shift
+                        </button>
+
+                        <template v-else>
+                            <button
+                                type="button"
+                                @click.stop="activeModal = 'cash-movement'"
+                                class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                            >
+                                <span>Kas Laci</span>
+                                <kbd class="kopdes-num rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">F4</kbd>
+                            </button>
+
+                            <button
+                                type="button"
+                                @click.stop="activeModal = 'close-shift'"
+                                class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-100"
+                            >
+                                <span>Tutup Shift</span>
+                                <kbd class="kopdes-num rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold text-white">F10</kbd>
+                            </button>
+                        </template>
+
+                        <!-- Label Barcode -->
+                        <Link
+                            :href="route('products.barcode-labels')"
+                            class="hidden cursor-pointer items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 xl:inline-flex"
+                            title="Cetak Stiker Label Barcode Produk"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            <span>Barcode</span>
+                        </Link>
+
+                        <!-- Pending & Riwayat Drawer Button -->
+                        <button
+                            type="button"
+                            @click.stop="
+                                refreshTransactionsLists();
+                                activeModal = 'drawer';
+                            "
+                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-800 transition-colors hover:bg-indigo-100"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Pending</span>
+                            <span
+                                v-if="pendingTransactions.length > 0"
+                                class="kopdes-num inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-slate-950"
+                            >
+                                {{ pendingTransactions.length }}
                             </span>
+                        </button>
+
+                        <!-- Quick Lock F12 -->
+                        <button
+                            type="button"
+                            @click.stop="lockPosSession"
+                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 transition-colors hover:bg-amber-100"
+                            title="Kunci Layar Cepat (F12)"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <span class="hidden sm:inline">Kunci</span>
+                            <kbd class="kopdes-num rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">F12</kbd>
+                        </button>
+
+                        <!-- Logout -->
+                        <button
+                            type="button"
+                            @click.stop="handleLogout"
+                            class="cursor-pointer rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:border-rose-200 hover:bg-rose-50"
+                            title="Keluar Sesi Kasir"
+                        >
+                            Keluar
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Left Scrollable Body -->
+            <div class="flex min-h-0 flex-1 flex-col gap-3.5 p-4 lg:overflow-hidden">
+                <!-- Inline Alert Toast Banner -->
+                <div
+                    v-if="alertBanner"
+                    role="status"
+                    class="animate-fade-in-up flex shrink-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-xs font-semibold shadow-card"
+                    :class="{
+                        'border-rose-200 bg-rose-50 text-rose-900': alertBanner.type === 'error',
+                        'border-amber-200 bg-amber-50 text-amber-900': alertBanner.type === 'warning',
+                        'border-emerald-200 bg-emerald-50 text-emerald-900': alertBanner.type === 'success',
+                        'border-indigo-200 bg-indigo-50 text-indigo-900': alertBanner.type === 'info',
+                    }"
+                >
+                    <span>{{ alertBanner.message }}</span>
+                    <button
+                        type="button"
+                        @click.stop="alertBanner = null"
+                        class="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-bold underline hover:opacity-80"
+                    >
+                        Tutup
+                    </button>
+                </div>
+
+                <!-- Bar Scan Barcode Besar + Indikator Fokus Visual -->
+                <div
+                    class="shrink-0 rounded-2xl border bg-white p-3.5 shadow-card transition-all duration-150"
+                    :class="
+                        activeModal === null && isBarcodeFocused
+                            ? 'border-kopdes-500 ring-2 ring-kopdes-500/20'
+                            : 'border-slate-200/90'
+                    "
+                >
+                    <form @submit.prevent="handleBarcodeSubmit">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label
+                                for="pos-barcode-scanner-input"
+                                class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-700"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-kopdes-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                </svg>
+                                <span>Scan Barcode Produk</span>
+                            </label>
+
+                            <StatusBadge
+                                :variant="activeModal === null && !isLocked ? 'emerald' : 'slate'"
+                                size="xs"
+                                dot
+                                :pulse="activeModal === null && !isLocked && isBarcodeFocused"
+                            >
+                                {{
+                                    activeModal === null && !isLocked
+                                        ? isBarcodeFocused
+                                            ? 'Scanner Fokus & Siap'
+                                            : 'Scanner Siap'
+                                        : 'Scanner Terjeda (Modal Aktif)'
+                                }}
+                            </StatusBadge>
                         </div>
 
                         <div class="mt-2 flex gap-2">
-                            <input
-                                id="pos-barcode-scanner-input"
-                                ref="barcodeInputRef"
-                                v-model="barcodeQuery"
-                                type="text"
-                                autocomplete="off"
-                                :disabled="activeModal !== null || isLocked"
-                                class="block w-full rounded-lg border-gray-300 font-mono text-base font-bold text-gray-900 shadow-sm focus:border-red-600 focus:ring-red-600"
-                                placeholder="Pindai barcode produk atau ketik kode barcode lalu tekan Enter..."
-                            />
+                            <div class="relative flex-1">
+                                <input
+                                    id="pos-barcode-scanner-input"
+                                    ref="barcodeInputRef"
+                                    v-model="barcodeQuery"
+                                    type="text"
+                                    autocomplete="off"
+                                    :disabled="activeModal !== null || isLocked"
+                                    @focus="isBarcodeFocused = true"
+                                    @blur="isBarcodeFocused = false"
+                                    class="kopdes-input kopdes-num py-3 pl-4 pr-10 text-base font-bold tracking-wide disabled:bg-slate-100"
+                                    placeholder="Pindai barcode produk atau ketik kode lalu tekan Enter..."
+                                />
+                                <button
+                                    v-if="barcodeQuery"
+                                    type="button"
+                                    @click.stop="barcodeQuery = ''; focusBarcodeInputIfIdle()"
+                                    aria-label="Hapus input barcode"
+                                    class="absolute inset-y-0 right-2.5 flex cursor-pointer items-center text-slate-400 hover:text-slate-700"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
                             <button
                                 type="submit"
                                 :disabled="activeModal !== null || isScanningBarcode"
-                                class="rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-800 disabled:opacity-50"
+                                class="btn-kopdes-primary shrink-0 px-5 text-sm font-bold"
                             >
-                                Cari
+                                {{ isScanningBarcode ? 'Mencari...' : 'Tambah' }}
                             </button>
                         </div>
-                        <p class="mt-1.5 text-[11px] text-gray-500">
-                            Jangan menempelkan Kartu RFID Member di kolom ini. Tekan
-                            <kbd class="rounded border bg-gray-100 px-1 font-mono font-bold">F2</kbd>
-                            untuk memindai Kartu Member.
+                        <p class="mt-1.5 text-[11px] text-slate-500">
+                            Input ini khusus barcode produk. Untuk Kartu RFID Member, tekan
+                            <kbd class="kopdes-num rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">F2</kbd>
+                            terlebih dahulu.
                         </p>
                     </form>
                 </div>
 
-                <!-- Daftar Produk Cabang -->
-                <div class="flex flex-1 flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                    <div class="flex flex-col justify-between gap-2 border-b border-gray-200 pb-3 sm:flex-row sm:items-center">
-                        <h2 class="text-sm font-extrabold text-gray-900">
-                            Katalog Produk &amp; Ketersediaan Stok Cabang
-                        </h2>
-                        <input
-                            v-model="catalogSearch"
-                            data-ignore-barcode-focus="true"
-                            type="text"
-                            placeholder="Filter nama / SKU..."
-                            class="rounded-md border-gray-300 text-xs shadow-sm focus:border-red-600 focus:ring-red-600 sm:w-56"
-                        />
+                <!-- Bar Simulator Hardware Demo (Collapsible, Hanya saat APP_DEMO_MODE=true) -->
+                <HardwareSimulatorPopover
+                    v-if="isDemoMode && currentShift && !isLocked"
+                    class="shrink-0"
+                    @scan-barcode="simulateBarcodeScan"
+                    @tap-member="simulateMemberTap"
+                />
+
+                <!-- Katalog Cepat Produk Cabang -->
+                <div class="kopdes-card flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <!-- Header Pencarian & Tab Kategori -->
+                    <div class="shrink-0 space-y-2.5 border-b border-slate-200/80 bg-slate-50/70 px-4 py-3">
+                        <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-sm font-extrabold text-slate-900">
+                                    Katalog Cepat Cabang
+                                </h2>
+                                <span class="kopdes-num rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                    {{ filteredCatalog.length }} produk
+                                </span>
+                            </div>
+
+                            <div class="relative sm:w-64">
+                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </span>
+                                <input
+                                    v-model="catalogSearch"
+                                    data-ignore-barcode-focus="true"
+                                    type="text"
+                                    placeholder="Cari nama produk / SKU..."
+                                    class="kopdes-input py-1.5 pl-8 pr-3 text-xs"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Category Filter Chips -->
+                        <div
+                            v-if="categoryTabs.length > 2"
+                            class="flex items-center gap-1.5 overflow-x-auto pb-0.5"
+                        >
+                            <button
+                                v-for="cat in categoryTabs"
+                                :key="cat"
+                                type="button"
+                                @click.stop="selectedCategory = cat"
+                                class="shrink-0 cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors"
+                                :class="
+                                    selectedCategory === cat
+                                        ? 'bg-kopdes-700 text-white shadow-sm'
+                                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                "
+                            >
+                                {{ cat === 'ALL' ? 'Semua Kategori' : cat }}
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="mt-3 grid max-h-[55vh] grid-cols-1 gap-2.5 overflow-y-auto sm:grid-cols-2">
-                        <button
-                            v-for="prod in filteredCatalog"
-                            :key="prod.id"
-                            type="button"
-                            :disabled="prod.available_stock < 1"
-                            @click.stop="addProductToCart(prod)"
-                            class="flex flex-col justify-between rounded-lg border p-3 text-left transition"
-                            :class="
-                                prod.available_stock > 0
-                                    ? 'border-gray-200 bg-white hover:border-red-400 hover:bg-red-50/30'
-                                    : 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-60'
-                            "
+                    <!-- Product Grid -->
+                    <div class="flex-1 overflow-y-auto p-3.5">
+                        <div
+                            v-if="filteredCatalog.length === 0"
+                            class="flex flex-col items-center justify-center py-12 text-center"
                         >
-                            <div>
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="font-mono text-[11px] font-bold text-gray-500">
-                                        {{ prod.barcode }}
-                                    </span>
-                                    <span
-                                        class="rounded-full px-2 py-0.5 font-mono text-[10px] font-extrabold"
-                                        :class="
-                                            prod.available_stock > 0
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
-                                        "
-                                    >
-                                        Stok: {{ prod.available_stock }} {{ prod.unit }}
-                                    </span>
-                                </div>
-                                <div class="mt-1 text-sm font-bold text-gray-900">
-                                    {{ prod.name }}
-                                </div>
-                            </div>
+                            <p class="text-sm font-bold text-slate-700">Produk tidak ditemukan</p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                Coba ubah kata kunci pencarian atau pilih kategori lain.
+                            </p>
+                        </div>
 
-                            <div class="mt-2 flex items-end justify-between border-t border-gray-100 pt-2">
-                                <span class="text-[11px] text-gray-500">{{ prod.category_name || '-' }}</span>
-                                <div class="text-right">
-                                    <div
-                                        v-if="selectedMember && prod.member_price !== null && prod.member_price !== undefined"
-                                        class="flex items-center justify-end gap-1.5"
-                                    >
-                                        <span class="font-mono text-[11px] text-gray-400 line-through">
-                                            {{ formatRupiah(prod.selling_price) }}
+                        <div
+                            v-else
+                            class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3"
+                        >
+                            <button
+                                v-for="prod in filteredCatalog"
+                                :key="prod.id"
+                                type="button"
+                                :disabled="prod.available_stock < 1"
+                                @click.stop="addProductToCart(prod)"
+                                class="group relative flex flex-col justify-between rounded-xl border p-3 text-left transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-kopdes-500/30"
+                                :class="
+                                    prod.available_stock > 0
+                                        ? cartQtyByProductId[prod.id]
+                                            ? 'cursor-pointer border-kopdes-300 bg-kopdes-50/30 hover:border-kopdes-500'
+                                            : 'cursor-pointer border-slate-200 bg-white hover:border-kopdes-300 hover:bg-slate-50/70'
+                                        : 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-55'
+                                "
+                            >
+                                <!-- Active Cart Quantity Indicator -->
+                                <span
+                                    v-if="cartQtyByProductId[prod.id]"
+                                    class="kopdes-num absolute -right-1.5 -top-1.5 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-kopdes-700 px-1.5 text-[11px] font-extrabold text-white shadow-sm ring-2 ring-white"
+                                >
+                                    {{ cartQtyByProductId[prod.id] }}
+                                </span>
+
+                                <div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                            {{ prod.category_name || 'Umum' }}
                                         </span>
-                                        <span class="font-mono text-sm font-extrabold text-emerald-700">
-                                            {{ formatRupiah(prod.member_price) }}
+                                        <span
+                                            class="kopdes-num shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                            :class="
+                                                prod.available_stock <= 0
+                                                    ? 'bg-rose-100 text-rose-700'
+                                                    : prod.available_stock <= 5
+                                                      ? 'bg-amber-100 text-amber-800'
+                                                      : 'bg-emerald-50 text-emerald-700'
+                                            "
+                                        >
+                                            {{ prod.available_stock > 0 ? `${prod.available_stock} ${prod.unit}` : 'Habis' }}
                                         </span>
                                     </div>
-                                    <template v-else>
-                                        <div class="font-mono text-sm font-extrabold text-red-700">
-                                            {{ formatRupiah(prod.selling_price) }}
-                                        </div>
-                                        <div
-                                            v-if="prod.member_price !== null && prod.member_price !== undefined"
-                                            class="font-mono text-[10px] font-semibold text-emerald-700"
-                                        >
-                                            Member: {{ formatRupiah(prod.member_price) }}
-                                        </div>
-                                    </template>
+
+                                    <div class="mt-1.5 line-clamp-2 text-sm font-bold leading-snug text-slate-900">
+                                        {{ prod.name }}
+                                    </div>
+                                    <div class="kopdes-num mt-0.5 text-[10px] text-slate-400">
+                                        {{ prod.barcode }}
+                                    </div>
                                 </div>
-                            </div>
-                        </button>
+
+                                <div class="mt-3 flex items-end justify-between border-t border-slate-100 pt-2">
+                                    <span class="text-[10px] font-medium text-slate-400">/{{ prod.unit }}</span>
+                                    <div class="text-right">
+                                        <div
+                                            v-if="selectedMember && prod.member_price !== null && prod.member_price !== undefined && Number(prod.member_price) < Number(prod.selling_price)"
+                                            class="flex flex-col items-end"
+                                        >
+                                            <span class="kopdes-num text-[10px] text-slate-400 line-through">
+                                                {{ formatRupiah(prod.selling_price) }}
+                                            </span>
+                                            <span class="kopdes-num text-sm font-extrabold text-emerald-700">
+                                                {{ formatRupiah(prod.member_price) }}
+                                            </span>
+                                        </div>
+                                        <template v-else>
+                                            <div class="kopdes-num text-sm font-extrabold text-slate-900 group-hover:text-kopdes-700">
+                                                {{ formatRupiah(prod.selling_price) }}
+                                            </div>
+                                            <div
+                                                v-if="prod.member_price !== null && prod.member_price !== undefined && Number(prod.member_price) < Number(prod.selling_price)"
+                                                class="kopdes-num text-[10px] font-semibold text-emerald-700"
+                                            >
+                                                Member {{ formatRupiah(prod.member_price) }}
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- Panel Kanan: Status Member Lintas Cabang + Keranjang Belanja -->
-            <div class="flex flex-col gap-4 lg:col-span-5">
-                <!-- Panel Identitas Member (FR-06) -->
+        <!-- ============================================================ -->
+        <!-- PANEL KANAN (~38%): Identitas Pembeli, Keranjang & Grand Total -->
+        <!-- ============================================================ -->
+        <aside class="flex min-w-0 flex-col border-t border-slate-200 bg-white lg:h-full lg:w-[38%] lg:flex-none lg:overflow-hidden lg:border-l lg:border-t-0">
+            <!-- Kartu Identitas Pembeli (Non-Member vs Member + Lintas Cabang Badge) -->
+            <div class="shrink-0 border-b border-slate-200/90 p-4">
                 <div
-                    class="rounded-xl border p-4 shadow-sm"
+                    class="rounded-2xl border p-3.5 transition-colors"
                     :class="
                         selectedMember
-                            ? 'border-green-300 bg-green-50'
-                            : 'border-gray-200 bg-white'
+                            ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/90 to-white'
+                            : 'border-slate-200 bg-slate-50/80'
                     "
                 >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-xs font-bold uppercase tracking-wider text-gray-500">
-                                Status Anggota KOPDES (Portabilitas Lintas Desa)
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                                    Identitas Pembeli
+                                </span>
+                                <StatusBadge v-if="selectedMember" variant="emerald" size="xs" dot>
+                                    Harga Member Aktif
+                                </StatusBadge>
+                                <StatusBadge v-if="isCrossBranchMember" variant="indigo" size="xs">
+                                    Lintas Cabang
+                                </StatusBadge>
                             </div>
+
                             <template v-if="selectedMember">
-                                <div class="mt-1 text-base font-extrabold text-green-900">
-                                    {{ selectedMember.name }} — {{ selectedMember.home_branch_name }}
+                                <div class="mt-1.5 truncate text-base font-extrabold text-slate-900">
+                                    {{ selectedMember.name }}
                                 </div>
-                                <div class="font-mono text-xs text-green-700">
-                                    Kode Member: {{ selectedMember.member_code }}
+                                <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                                    <span class="kopdes-num font-semibold text-emerald-800">
+                                        {{ selectedMember.member_code }}
+                                    </span>
+                                    <span class="text-slate-300">&bull;</span>
+                                    <span class="truncate font-medium text-slate-600">
+                                        Asal: <strong class="text-slate-800">{{ selectedMember.home_branch_name }}</strong>
+                                    </span>
                                 </div>
                             </template>
+
                             <template v-else>
-                                <div class="mt-1 text-sm font-bold text-gray-800">
+                                <div class="mt-1 text-sm font-extrabold text-slate-800">
                                     Pembeli Umum (Non-Member)
                                 </div>
-                                <div class="text-xs text-gray-500">
-                                    Tekan <strong>F2</strong> untuk tap Kartu RFID Member dari desa mana pun
-                                </div>
+                                <p class="mt-0.5 text-[11px] text-slate-500">
+                                    Tap Kartu RFID Member desa mana pun untuk harga khusus &amp; catat SHU.
+                                </p>
                             </template>
                         </div>
 
-                        <div class="flex flex-col gap-1.5">
+                        <div class="flex shrink-0 flex-col gap-1.5">
                             <button
                                 type="button"
                                 @click.stop="activeModal = 'member'"
-                                class="rounded-md bg-red-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-red-800"
+                                class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-kopdes-700 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-kopdes-800"
                             >
-                                {{ selectedMember ? 'Ganti (F2)' : 'Tap Member (F2)' }}
+                                <span>{{ selectedMember ? 'Ganti' : 'Tap Member' }}</span>
+                                <kbd class="kopdes-num rounded bg-kopdes-900 px-1.5 py-0.5 text-[10px] font-bold text-kopdes-100">F2</kbd>
                             </button>
                             <button
                                 v-if="selectedMember"
                                 type="button"
                                 @click.stop="selectedMember = null"
-                                class="rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                class="cursor-pointer rounded-xl border border-rose-200 bg-white px-3 py-1 text-[11px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
                             >
                                 Lepas Member
                             </button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Keranjang Belanja Reaktif (FR-11) -->
-                <div class="flex flex-1 flex-col justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                    <div>
-                        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-                            <div>
-                                <h2 class="text-base font-extrabold text-gray-900">
-                                    Keranjang Belanja ({{ totalItemsCount }} item)
-                                </h2>
-                                <div
-                                    v-if="idempotencyKey"
-                                    class="font-mono text-[10px] text-gray-400"
-                                >
-                                    IDEMPOTENCY: {{ idempotencyKey }}
+            <!-- Header Keranjang Belanja -->
+            <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-extrabold text-slate-900">
+                        Keranjang Belanja
+                    </h2>
+                    <span class="kopdes-num rounded-full bg-kopdes-50 px-2 py-0.5 text-xs font-extrabold text-kopdes-700 ring-1 ring-kopdes-200/80">
+                        {{ totalItemsCount }} item
+                    </span>
+                </div>
+
+                <button
+                    v-if="cartItems.length > 0"
+                    type="button"
+                    @click.stop="resetCartManually"
+                    class="cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                >
+                    Kosongkan
+                </button>
+            </div>
+
+            <!-- Daftar Item Keranjang (Scrollable) -->
+            <div class="flex-1 overflow-y-auto px-4 py-2">
+                <div
+                    v-if="cartItems.length === 0"
+                    class="flex h-full min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center"
+                >
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                    <p class="mt-3 text-sm font-bold text-slate-700">
+                        Keranjang masih kosong
+                    </p>
+                    <p class="mt-1 max-w-xs text-xs leading-relaxed text-slate-500">
+                        Pindai barcode produk di sebelah kiri atau klik kartu produk pada katalog cepat untuk memulai transaksi.
+                    </p>
+                </div>
+
+                <div v-else class="divide-y divide-slate-100">
+                    <div
+                        v-for="item in cartItems"
+                        :key="item.product_id"
+                        class="py-3"
+                    >
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate text-sm font-bold text-slate-900">
+                                    {{ item.name }}
+                                </div>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                                    <template v-if="isItemMemberPriceApplied(item) && Number(item.member_price) < Number(item.selling_price)">
+                                        <span class="kopdes-num text-slate-400 line-through">
+                                            {{ formatRupiah(item.selling_price) }}
+                                        </span>
+                                        <span class="kopdes-num font-bold text-emerald-700">
+                                            {{ formatRupiah(item.member_price) }}
+                                        </span>
+                                        <span class="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200/70">
+                                            Hemat {{ formatRupiah(getItemMemberSavings(item)) }}
+                                        </span>
+                                    </template>
+                                    <template v-else>
+                                        <span class="kopdes-num font-medium text-slate-500">
+                                            {{ formatRupiah(getEffectiveUnitPrice(item)) }} / {{ item.unit }}
+                                        </span>
+                                    </template>
                                 </div>
                             </div>
 
                             <button
-                                v-if="cartItems.length > 0"
                                 type="button"
-                                @click.stop="resetCartManually"
-                                class="text-xs font-semibold text-red-600 hover:underline"
+                                @click.stop="removeItemFromCart(item.product_id)"
+                                aria-label="Hapus item dari keranjang"
+                                class="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                             >
-                                Kosongkan
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
                             </button>
                         </div>
 
-                        <div
-                            v-if="cartItems.length === 0"
-                            class="py-12 text-center text-sm text-gray-400"
-                        >
-                            Keranjang masih kosong. Silakan pindai barcode produk atau klik produk di katalog.
-                        </div>
-
-                        <div v-else class="mt-3 max-h-[42vh] divide-y divide-gray-100 overflow-y-auto">
-                            <div
-                                v-for="item in cartItems"
-                                :key="item.product_id"
-                                class="flex items-center justify-between gap-2 py-2.5"
-                            >
-                                <div class="min-w-0 flex-1">
-                                    <div class="truncate text-sm font-bold text-gray-900">
-                                        {{ item.name }}
-                                    </div>
-                                    <div class="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-xs">
-                                        <template v-if="isItemMemberPriceApplied(item) && Number(item.member_price) < Number(item.selling_price)">
-                                            <span class="text-gray-400 line-through">
-                                                {{ formatRupiah(item.selling_price) }}
-                                            </span>
-                                            <span class="font-bold text-emerald-700">
-                                                {{ formatRupiah(item.member_price) }}
-                                            </span>
-                                            <span class="text-gray-500">/ {{ item.unit }}</span>
-                                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                                                Hemat {{ formatRupiah(getItemMemberSavings(item)) }}
-                                            </span>
-                                        </template>
-                                        <template v-else>
-                                            <span class="text-gray-500">
-                                                {{ formatRupiah(getEffectiveUnitPrice(item)) }} / {{ item.unit }}
-                                            </span>
-                                        </template>
-                                        <span class="text-gray-400">(Stok: {{ item.available_stock }})</span>
-                                    </div>
-                                </div>
-
-                                <!-- Kontrol Kuantitas (- / Input / +) -->
-                                <div class="flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        @click.stop="updateItemQty(item, item.qty - 1)"
-                                        class="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-gray-50 font-bold text-gray-700 hover:bg-gray-100"
-                                    >
-                                        -
-                                    </button>
-                                    <input
-                                        :value="item.qty"
-                                        data-ignore-barcode-focus="true"
-                                        type="number"
-                                        min="1"
-                                        :max="item.available_stock"
-                                        @change="updateItemQty(item, $event.target.value)"
-                                        class="h-7 w-14 rounded border-gray-300 p-1 text-center font-mono text-xs font-bold"
-                                    />
-                                    <button
-                                        type="button"
-                                        @click.stop="updateItemQty(item, item.qty + 1)"
-                                        class="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-gray-50 font-bold text-gray-700 hover:bg-gray-100"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-
-                                <div class="w-24 text-right font-mono text-sm font-extrabold text-gray-900">
-                                    {{ formatRupiah(getEffectiveUnitPrice(item) * item.qty) }}
-                                </div>
-
+                        <!-- Tactile Qty Stepper + Subtotal -->
+                        <div class="mt-2.5 flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-1.5">
                                 <button
                                     type="button"
-                                    @click.stop="removeItemFromCart(item.product_id)"
-                                    class="ms-1 text-xs font-bold text-red-500 hover:text-red-700"
-                                    title="Hapus item"
+                                    @click.stop="updateItemQty(item, item.qty - 1)"
+                                    aria-label="Kurangi jumlah"
+                                    class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white text-base font-extrabold text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 active:bg-slate-100"
                                 >
-                                    &times;
+                                    &minus;
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer Grand Total & Tombol Bayar (F9) -->
-                    <div class="mt-4 border-t border-gray-200 pt-4">
-                        <div
-                            v-if="totalMemberSavings > 0"
-                            class="mb-2.5 space-y-1 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs"
-                        >
-                            <div class="flex items-center justify-between text-gray-600">
-                                <span>Subtotal Harga Normal</span>
-                                <span class="font-mono font-semibold">
-                                    {{ formatRupiah(regularSubtotal) }}
+                                <input
+                                    :value="item.qty"
+                                    data-ignore-barcode-focus="true"
+                                    type="number"
+                                    min="1"
+                                    :max="item.available_stock"
+                                    @change="updateItemQty(item, $event.target.value)"
+                                    aria-label="Jumlah item"
+                                    class="kopdes-num h-9 w-14 rounded-xl border-slate-300 p-1 text-center text-sm font-extrabold text-slate-900 shadow-sm focus:border-kopdes-600 focus:ring-kopdes-500/25"
+                                />
+                                <button
+                                    type="button"
+                                    @click.stop="updateItemQty(item, item.qty + 1)"
+                                    aria-label="Tambah jumlah"
+                                    class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white text-base font-extrabold text-slate-700 shadow-sm transition-colors hover:border-kopdes-400 hover:bg-kopdes-50 hover:text-kopdes-700 active:bg-kopdes-100"
+                                >
+                                    +
+                                </button>
+                                <span class="kopdes-num ml-1 text-[11px] text-slate-400">
+                                    maks {{ item.available_stock }}
                                 </span>
                             </div>
-                            <div class="flex items-center justify-between font-bold text-emerald-800">
-                                <span>Total Hemat Member</span>
-                                <span class="font-mono">
-                                    -{{ formatRupiah(totalMemberSavings) }}
-                                </span>
+
+                            <div class="kopdes-num text-right text-sm font-extrabold text-slate-900">
+                                {{ formatRupiah(getEffectiveUnitPrice(item) * item.qty) }}
                             </div>
                         </div>
-
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-bold text-gray-600">GRAND TOTAL</span>
-                            <span class="font-mono text-2xl font-black text-red-700">
-                                {{ formatRupiah(grandTotal) }}
-                            </span>
-                        </div>
-
-                        <button
-                            type="button"
-                            :disabled="cartItems.length === 0 || isSubmitting"
-                            @click.stop="
-                                paymentError = '';
-                                activeModal = 'payment';
-                            "
-                            class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 py-3.5 text-base font-extrabold text-white shadow-md transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                            <span>PROSES PEMBAYARAN</span>
-                            <kbd class="rounded bg-red-900 px-2 py-0.5 font-mono text-xs">F9</kbd>
-                        </button>
                     </div>
                 </div>
             </div>
-        </main>
+
+            <!-- Footer Ringkasan Grand Total & CTA Bayar (F9) -->
+            <div class="shrink-0 border-t border-slate-200 bg-slate-50/90 p-4">
+                <!-- Highlight Hijau Total Hemat Member -->
+                <div
+                    v-if="totalMemberSavings > 0"
+                    class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5"
+                >
+                    <div class="flex items-center justify-between text-xs text-emerald-900/80">
+                        <span>Subtotal Harga Normal</span>
+                        <span class="kopdes-num font-semibold line-through">
+                            {{ formatRupiah(regularSubtotal) }}
+                        </span>
+                    </div>
+                    <div class="mt-1 flex items-center justify-between text-xs font-extrabold text-emerald-800">
+                        <span class="inline-flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                            <span>Total Hemat Member</span>
+                        </span>
+                        <span class="kopdes-num text-sm">
+                            -{{ formatRupiah(totalMemberSavings) }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Grand Total -->
+                <div class="flex items-baseline justify-between gap-2">
+                    <div>
+                        <span class="block text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                            Grand Total
+                        </span>
+                        <span v-if="idempotencyKey" class="kopdes-num block text-[9px] text-slate-400">
+                            Ref: {{ idempotencyKey.slice(0, 8) }}
+                        </span>
+                    </div>
+                    <span class="kopdes-num text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+                        {{ formatRupiah(grandTotal) }}
+                    </span>
+                </div>
+
+                <!-- High-Contrast CTA Bayar (F9) -->
+                <button
+                    type="button"
+                    :disabled="cartItems.length === 0 || isSubmitting"
+                    @click.stop="
+                        paymentError = '';
+                        activeModal = 'payment';
+                    "
+                    class="mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-kopdes-700 px-5 py-4 text-base font-extrabold text-white shadow-md transition-colors duration-150 hover:bg-kopdes-800 focus:outline-none focus:ring-2 focus:ring-kopdes-500 focus:ring-offset-2 active:bg-kopdes-900 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    <span>{{ isSubmitting ? 'Memproses...' : 'Bayar Sekarang' }}</span>
+                    <kbd class="kopdes-num rounded-lg bg-kopdes-900/90 px-2 py-0.5 text-xs font-bold text-kopdes-100 ring-1 ring-white/15">
+                        F9
+                    </kbd>
+                </button>
+            </div>
+        </aside>
 
         <!-- Modal F2: Tap Kartu Member Lintas Cabang -->
         <MemberLookupModal
@@ -1335,13 +1544,6 @@ onBeforeUnmount(() => {
             :current-cashier="currentCashier"
             :branch="branch"
             @unlocked="handlePosUnlocked"
-        />
-
-        <!-- Simulator Hardware POS (Hanya dirender bila APP_DEMO_MODE=true) -->
-        <HardwareSimulatorPopover
-            v-if="isDemoMode && currentShift && !isLocked"
-            @scan-barcode="simulateBarcodeScan"
-            @tap-member="simulateMemberTap"
         />
     </div>
 

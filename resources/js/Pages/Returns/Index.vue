@@ -3,6 +3,9 @@ import { reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import StatCard from '@/Components/StatCard.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -109,9 +112,14 @@ const exportUrl = (format) => {
         <template #header>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                        Riwayat Retur &amp; Void Transaksi
-                    </h1>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Riwayat Retur &amp; Void Transaksi
+                        </h1>
+                        <StatusBadge variant="slate" size="xs">
+                            Audit Immutable
+                        </StatusBadge>
+                    </div>
                     <p class="mt-0.5 text-sm text-slate-600">
                         Jejak audit immutable seluruh retur parsial, full void, pengembalian stok, dan refund manual cabang
                     </p>
@@ -236,42 +244,68 @@ const exportUrl = (format) => {
 
                 <!-- KPI Strip -->
                 <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-kopdes-700"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Dokumen Retur</p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-slate-900">
-                            {{ formatNumber(summary.total_returns_count) }}
-                        </p>
-                    </div>
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-rose-600"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Nilai Refund</p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-rose-700">
-                            {{ formatRupiah(summary.total_refund_amount) }}
-                        </p>
-                    </div>
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-emerald-600"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">HPP Restock (Layak Jual)</p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-emerald-700">
-                            {{ formatRupiah(summary.total_restocked_cogs) }}
-                        </p>
-                    </div>
-                    <div class="kopdes-card relative overflow-hidden p-5">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-amber-500"></div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Kerugian Barang Rusak</p>
-                        <p class="kopdes-num mt-2 text-2xl font-extrabold text-amber-700">
-                            {{ formatRupiah(summary.total_damaged_cogs) }}
-                        </p>
-                    </div>
+                    <StatCard
+                        label="Total Dokumen Retur"
+                        :value="formatNumber(summary.total_returns_count)"
+                        helper="Dokumen retur & void tercatat"
+                        accent="kopdes"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="Total Nilai Refund"
+                        :value="formatRupiah(summary.total_refund_amount)"
+                        helper="Dana dikembalikan ke pembeli"
+                        accent="rose"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="HPP Restock (Layak Jual)"
+                        :value="formatRupiah(summary.total_restocked_cogs)"
+                        helper="Barang kembali ke stok cabang"
+                        accent="emerald"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="Kerugian Barang Rusak"
+                        :value="formatRupiah(summary.total_damaged_cogs)"
+                        helper="Tidak direstock (beban HPP)"
+                        accent="amber"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </template>
+                    </StatCard>
                 </section>
 
                 <!-- Tabel Riwayat Retur -->
                 <section class="kopdes-card overflow-hidden">
-                    <div class="border-b border-slate-200 px-5 py-4">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                         <h2 class="text-base font-bold text-slate-900">Daftar Dokumen Retur &amp; Void</h2>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ formatNumber(returns.length) }} Dokumen</span>
+                        </StatusBadge>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div v-if="returns.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -295,29 +329,22 @@ const exportUrl = (format) => {
                                         <div class="text-xs text-slate-500">{{ ret.branch?.name ?? '-' }} &bull; {{ ret.member_name }}</div>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3.5 text-center">
-                                        <span
-                                            class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold"
-                                            :class="
-                                                ret.return_type === 'full'
-                                                    ? 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200'
-                                                    : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200'
-                                            "
-                                        >
+                                        <StatusBadge :variant="ret.return_type === 'full' ? 'rose' : 'amber'" size="xs">
                                             {{ ret.return_type === 'full' ? 'Full Void' : 'Parsial' }}
-                                        </span>
+                                        </StatusBadge>
                                     </td>
                                     <td class="px-4 py-3.5 text-xs">
-                                        <div class="font-bold text-slate-800">
+                                        <StatusBadge :variant="ret.refund_method === 'cash_refund' ? 'emerald' : 'indigo'" size="xs">
                                             {{ ret.refund_method === 'cash_refund' ? 'Tunai' : 'Transfer Manual' }}
-                                        </div>
-                                        <div v-if="ret.refund_method === 'cash_refund'" class="text-slate-500">
+                                        </StatusBadge>
+                                        <div v-if="ret.refund_method === 'cash_refund'" class="mt-1 text-slate-500">
                                             {{
                                                 ret.cash_source === 'active_shift'
                                                     ? `Laci Shift (${ret.refund_shift_code || '-'})`
                                                     : 'Kas Cabang'
                                             }}
                                         </div>
-                                        <div v-else class="kopdes-num text-slate-500">{{ ret.refund_reference }}</div>
+                                        <div v-else class="kopdes-num mt-1 text-slate-500">{{ ret.refund_reference }}</div>
                                     </td>
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right font-extrabold text-rose-700">
                                         {{ formatRupiah(ret.total_refund_amount) }}
@@ -328,20 +355,26 @@ const exportUrl = (format) => {
                                     <td class="whitespace-nowrap px-4 py-3.5 text-center">
                                         <Link
                                             :href="route('returns.show', ret.id)"
-                                            class="inline-flex cursor-pointer items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
+                                            class="inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                         >
                                             Bukti Retur
                                         </Link>
                                     </td>
                                 </tr>
-                                <tr v-if="returns.length === 0">
-                                    <td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">
-                                        Belum ada riwayat retur atau pembatalan transaksi pada periode ini.
-                                    </td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
+                    <EmptyState
+                        v-else
+                        title="Belum ada riwayat retur atau void"
+                        description="Dokumen retur parsial maupun full void yang diproses pada periode ini akan muncul di sini."
+                    >
+                        <template #actions>
+                            <Link :href="route('reports.sales')" class="btn-kopdes-primary !text-xs">
+                                Buka Laporan Penjualan
+                            </Link>
+                        </template>
+                    </EmptyState>
                 </section>
             </div>
         </div>

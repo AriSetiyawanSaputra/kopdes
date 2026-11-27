@@ -9,6 +9,7 @@ use App\Models\TransactionItem;
 use App\Models\TransactionReturn;
 use App\Models\TransactionReturnItem;
 use App\Services\MemberPortalService;
+use App\Support\DemoAccountGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -76,9 +77,9 @@ class MemberPortalController extends Controller
             ->orderByDesc('id');
 
         if ($scope === 'home') {
-            $query->whereRaw("branch_id = COALESCE(member_home_branch_id, {$homeBranchId})");
+            $query->whereRaw('branch_id = COALESCE(member_home_branch_id, ?)', [$homeBranchId]);
         } elseif ($scope === 'cross') {
-            $query->whereRaw("branch_id <> COALESCE(member_home_branch_id, {$homeBranchId})");
+            $query->whereRaw('branch_id <> COALESCE(member_home_branch_id, ?)', [$homeBranchId]);
         } else {
             $scope = 'all';
         }
@@ -191,6 +192,10 @@ class MemberPortalController extends Controller
     {
         /** @var Member $member */
         $member = $request->user('member');
+
+        if (DemoAccountGuard::isProtectedDemoMember($member)) {
+            abort(403, 'PIN akun member demo bawaan dilindungi dan tidak dapat diubah saat Mode Demo aktif.');
+        }
 
         $member->update([
             'pin_hash' => Hash::make((string) $request->validated('new_pin')),

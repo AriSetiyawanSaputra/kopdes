@@ -3,11 +3,12 @@ import { computed, reactive, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ImportExcelModal from '@/Components/ImportExcelModal.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import StatCard from '@/Components/StatCard.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -70,6 +71,14 @@ const lowStockCount = computed(() => {
     return props.stocks.filter((item) => item.available_stock <= item.min_stock).length;
 });
 
+const totalPhysicalUnits = computed(() => {
+    return props.stocks.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+});
+
+const totalReservedUnits = computed(() => {
+    return props.stocks.reduce((sum, item) => sum + Number(item.reserved_qty || 0), 0);
+});
+
 const estimatedRestockQtyAfter = computed(() => {
     if (!activeRestockItem.value) {
         return 0;
@@ -106,6 +115,10 @@ const formatRupiah = (value) => {
         currency: 'IDR',
         minimumFractionDigits: 0,
     }).format(Number(value || 0));
+};
+
+const formatNumber = (value) => {
+    return new Intl.NumberFormat('id-ID').format(Number(value || 0));
 };
 
 const applyFilters = () => {
@@ -189,18 +202,23 @@ const submitAdjust = () => {
         <template #header>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 class="text-xl font-bold leading-tight text-gray-900">
-                        Inventori &amp; Persediaan Barang Cabang
-                    </h2>
-                    <p class="mt-0.5 text-sm text-gray-500">
-                        <span v-if="selectedBranch" class="font-semibold text-gray-700">
-                            {{ selectedBranch.name }} ({{ selectedBranch.code }})
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Inventori &amp; Persediaan Barang Cabang
+                        </h1>
+                        <StatusBadge v-if="selectedBranch" variant="kopdes" size="xs">
+                            {{ selectedBranch.code }}
+                        </StatusBadge>
+                    </div>
+                    <p class="mt-0.5 text-sm text-slate-600">
+                        <span v-if="selectedBranch" class="font-semibold text-slate-800">
+                            {{ selectedBranch.name }}
                         </span>
                         <span v-else>Pantau stok fisik, reservasi Midtrans, dan stok tersedia</span>
-                        — rumus ketersediaan:
-                        <code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-800">
-                            Stok Tersedia = Stok Fisik - Ditahan Midtrans
-                        </code>
+                        &mdash;
+                        <span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-700">
+                            Stok Tersedia = Stok Fisik &minus; Ditahan Midtrans
+                        </span>
                     </p>
                 </div>
 
@@ -209,9 +227,12 @@ const submitAdjust = () => {
                         v-if="permissions.can_import"
                         type="button"
                         @click="showImportModal = true"
-                        class="btn-kopdes-emerald !py-2"
+                        class="btn-kopdes-emerald"
                     >
-                        Import Stok Awal (Excel/CSV)
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Import Stok Awal
                     </button>
                     <Link
                         :href="
@@ -219,7 +240,7 @@ const submitAdjust = () => {
                                 branch_id: selectedBranch?.id || undefined,
                             })
                         "
-                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                        class="btn-kopdes-secondary !px-3.5 !py-2 !text-xs"
                     >
                         Riwayat &amp; Audit Log Stok
                     </Link>
@@ -228,16 +249,77 @@ const submitAdjust = () => {
         </template>
 
         <div class="py-6">
-            <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                <!-- KPI Summary Strip -->
+                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatCard
+                        label="Produk Terpantau"
+                        :value="formatNumber(stocks.length)"
+                        helper="SKU aktif pada filter cabang"
+                        accent="kopdes"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="Total Stok Fisik"
+                        :value="formatNumber(totalPhysicalUnits)"
+                        helper="Akumulasi unit di rak & gudang"
+                        accent="emerald"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="Ditahan Midtrans"
+                        :value="formatNumber(totalReservedUnits)"
+                        helper="Unit terikat transaksi pending"
+                        :accent="totalReservedUnits > 0 ? 'amber' : 'slate'"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </template>
+                    </StatCard>
+
+                    <StatCard
+                        label="Stok Menipis"
+                        :value="formatNumber(lowStockCount)"
+                        helper="Stok tersedia ≤ batas minimum"
+                        :accent="lowStockCount > 0 ? 'rose' : 'emerald'"
+                    >
+                        <template #icon>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </template>
+                    </StatCard>
+                </section>
+
                 <!-- Peringatan Stok Menipis -->
                 <div
                     v-if="lowStockCount > 0"
-                    class="flex items-center justify-between rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+                    role="alert"
+                    class="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm text-rose-900 sm:flex-row sm:items-center sm:justify-between"
                 >
-                    <div>
-                        <span class="font-bold">Perhatian:</span>
-                        Terdapat <span class="font-extrabold">{{ lowStockCount }}</span> produk aktif dengan
-                        <strong>Stok Tersedia &le; Batas Minimum</strong> pada cabang ini.
+                    <div class="flex items-start gap-2.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <span class="font-bold">Peringatan Stok Menipis:</span>
+                            Terdapat <span class="kopdes-num font-extrabold">{{ lowStockCount }}</span> produk aktif dengan
+                            <strong>Stok Tersedia &le; Batas Minimum</strong> pada cabang ini.
+                        </div>
                     </div>
                     <button
                         v-if="!filterForm.low_stock"
@@ -246,26 +328,27 @@ const submitAdjust = () => {
                             filterForm.low_stock = true;
                             applyFilters();
                         "
-                        class="rounded border border-red-300 bg-white px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        class="shrink-0 cursor-pointer rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100"
                     >
                         Tampilkan Stok Menipis
                     </button>
                 </div>
 
                 <!-- Filter Bar -->
-                <div class="rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200">
+                <div class="kopdes-card p-5">
                     <form
                         @submit.prevent="applyFilters"
-                        class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
+                        class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5"
                     >
                         <div v-if="branches.length > 1">
-                            <label class="block text-xs font-semibold text-gray-700">
+                            <label for="inv-branch" class="block text-xs font-semibold text-slate-700">
                                 Cabang KOPDES
                             </label>
                             <select
+                                id="inv-branch"
                                 v-model="filterForm.branch_id"
                                 @change="applyFilters"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                                class="kopdes-input mt-1 cursor-pointer"
                             >
                                 <option
                                     v-for="b in branches"
@@ -278,25 +361,27 @@ const submitAdjust = () => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">
+                            <label for="inv-search" class="block text-xs font-semibold text-slate-700">
                                 Cari Nama / SKU / Barcode
                             </label>
-                            <TextInput
+                            <input
+                                id="inv-search"
                                 v-model="filterForm.search"
                                 type="text"
-                                class="mt-1 block w-full text-sm"
+                                class="kopdes-input mt-1"
                                 placeholder="Beras / SKU / 899..."
                             />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-gray-700">
+                            <label for="inv-category" class="block text-xs font-semibold text-slate-700">
                                 Kategori Produk
                             </label>
                             <select
+                                id="inv-category"
                                 v-model="filterForm.category_id"
                                 @change="applyFilters"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                                class="kopdes-input mt-1 cursor-pointer"
                             >
                                 <option value="">Semua Kategori</option>
                                 <option
@@ -310,12 +395,12 @@ const submitAdjust = () => {
                         </div>
 
                         <div class="flex items-end pb-1.5">
-                            <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                            <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                                 <input
                                     v-model="filterForm.low_stock"
                                     type="checkbox"
                                     @change="applyFilters"
-                                    class="rounded border-gray-300 text-red-600 shadow-sm focus:ring-red-500"
+                                    class="h-4 w-4 rounded border-slate-300 text-kopdes-700 shadow-sm focus:ring-kopdes-500"
                                 />
                                 <span class="text-xs font-semibold">
                                     Hanya Stok Menipis (&le; Min)
@@ -324,16 +409,10 @@ const submitAdjust = () => {
                         </div>
 
                         <div class="flex items-end gap-2">
-                            <PrimaryButton
-                                type="submit"
-                                class="bg-red-700 hover:bg-red-800"
-                            >
+                            <PrimaryButton type="submit">
                                 Filter
                             </PrimaryButton>
-                            <SecondaryButton
-                                type="button"
-                                @click="resetFilters"
-                            >
+                            <SecondaryButton type="button" @click="resetFilters">
                                 Reset
                             </SecondaryButton>
                         </div>
@@ -341,105 +420,98 @@ const submitAdjust = () => {
                 </div>
 
                 <!-- Inventory Table -->
-                <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
+                <div class="kopdes-card overflow-hidden">
+                    <div v-if="stocks.length > 0" class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-slate-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         SKU &amp; Barcode
                                     </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Produk &amp; Kategori
                                     </th>
-                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Harga Jual
                                     </th>
-                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">
-                                        Stok Fisik (`quantity`)
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                        Stok Fisik
                                     </th>
-                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">
-                                        Ditahan Midtrans (`reserved_qty`)
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                        Ditahan Midtrans
                                     </th>
-                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">
-                                        Stok Tersedia (`available_stock`)
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                        Stok Tersedia
                                     </th>
-                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">
-                                        Batas Minimum (`min_stock`)
+                                    <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                        Batas Minimum
                                     </th>
-                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200 bg-white">
+                            <tbody class="divide-y divide-slate-100 bg-white">
                                 <tr
                                     v-for="item in stocks"
                                     :key="item.product_id"
+                                    class="transition-colors"
                                     :class="
                                         item.available_stock <= item.min_stock
-                                            ? 'bg-red-50/60 hover:bg-red-50'
-                                            : 'hover:bg-gray-50'
+                                            ? 'bg-rose-50/40 hover:bg-rose-50/70'
+                                            : 'hover:bg-slate-50/80'
                                     "
                                 >
-                                    <td class="whitespace-nowrap px-4 py-3">
-                                        <div class="font-mono text-xs font-bold text-gray-900">
+                                    <td class="whitespace-nowrap px-4 py-3.5">
+                                        <div class="kopdes-num text-xs font-bold text-slate-900">
                                             {{ item.sku }}
                                         </div>
-                                        <div class="font-mono text-xs text-gray-500">
+                                        <div class="kopdes-num text-xs text-slate-500">
                                             {{ item.barcode }}
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <div class="font-semibold text-gray-900">
+                                    <td class="px-4 py-3.5">
+                                        <div class="font-semibold text-slate-900">
                                             {{ item.name }}
                                         </div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ item.category?.name ?? '-' }} • Satuan: {{ item.unit }}
+                                        <div class="text-xs text-slate-500">
+                                            {{ item.category?.name ?? '-' }} &bull; Satuan: {{ item.unit }}
                                         </div>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold text-gray-800">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-right font-semibold text-slate-800">
                                         {{ formatRupiah(item.selling_price) }}
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-center font-mono text-sm font-bold text-gray-900">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-center text-sm font-bold text-slate-900">
                                         {{ item.quantity }}
-                                        <span class="text-xs font-normal text-gray-500">{{ item.unit }}</span>
+                                        <span class="text-xs font-normal text-slate-500">{{ item.unit }}</span>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-center font-mono text-sm">
-                                        <span
-                                            v-if="item.reserved_qty > 0"
-                                            class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800"
-                                        >
-                                            {{ item.reserved_qty }} {{ item.unit }}
-                                        </span>
-                                        <span v-else class="text-gray-400">
-                                            0
-                                        </span>
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-center">
+                                        <StatusBadge v-if="item.reserved_qty > 0" variant="amber" size="xs">
+                                            <span class="kopdes-num">{{ item.reserved_qty }} {{ item.unit }}</span>
+                                        </StatusBadge>
+                                        <span v-else class="kopdes-num text-xs text-slate-400">0</span>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-center">
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-center">
                                         <div class="inline-flex items-center gap-1.5">
-                                            <span
-                                                class="inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-xs font-extrabold"
-                                                :class="
-                                                    item.available_stock <= item.min_stock
-                                                        ? 'bg-red-100 text-red-800 ring-1 ring-red-300'
-                                                        : 'bg-green-100 text-green-800'
-                                                "
+                                            <StatusBadge
+                                                :variant="item.available_stock <= item.min_stock ? 'rose' : 'emerald'"
+                                                size="xs"
+                                                dot
                                             >
-                                                {{ item.available_stock }} {{ item.unit }}
-                                            </span>
+                                                <span class="kopdes-num">{{ item.available_stock }} {{ item.unit }}</span>
+                                            </StatusBadge>
                                             <span
                                                 v-if="item.available_stock <= item.min_stock"
-                                                class="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                                                class="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
                                             >
                                                 Menipis
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-center font-mono text-xs text-gray-600">
+                                    <td class="kopdes-num whitespace-nowrap px-4 py-3.5 text-center text-xs text-slate-600">
                                         {{ item.min_stock }} {{ item.unit }}
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right">
+                                    <td class="whitespace-nowrap px-4 py-3.5 text-right">
                                         <div
                                             v-if="permissions.can_mutate"
                                             class="inline-flex items-center gap-1.5"
@@ -447,16 +519,16 @@ const submitAdjust = () => {
                                             <button
                                                 type="button"
                                                 @click="openRestockModal(item)"
-                                                class="rounded border border-green-300 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-800 shadow-sm hover:bg-green-100"
+                                                class="cursor-pointer rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
                                             >
                                                 + Restock
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="openAdjustModal(item)"
-                                                class="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                                class="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:border-kopdes-200 hover:bg-kopdes-50 hover:text-kopdes-700"
                                             >
-                                                Sesuaikan Stok
+                                                Sesuaikan
                                             </button>
                                         </div>
                                         <Link
@@ -467,23 +539,20 @@ const submitAdjust = () => {
                                                     product_id: item.product_id,
                                                 })
                                             "
-                                            class="text-xs font-semibold text-red-700 hover:underline"
+                                            class="text-xs font-semibold text-kopdes-700 hover:underline"
                                         >
                                             Lihat Log
                                         </Link>
                                     </td>
                                 </tr>
-                                <tr v-if="stocks.length === 0">
-                                    <td
-                                        colspan="8"
-                                        class="px-4 py-8 text-center text-sm text-gray-500"
-                                    >
-                                        Tidak ada data stok produk aktif yang sesuai dengan filter.
-                                    </td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
+                    <EmptyState
+                        v-else
+                        title="Tidak ada data stok produk"
+                        description="Tidak ada produk aktif yang sesuai dengan filter pencarian atau kategori yang dipilih."
+                    />
                 </div>
             </div>
         </div>
@@ -491,82 +560,79 @@ const submitAdjust = () => {
         <!-- Modal Tambah Stok (Restock) -->
         <Modal :show="activeRestockItem !== null" max-width="lg" @close="closeRestockModal">
             <form v-if="activeRestockItem" @submit.prevent="submitRestock" class="p-6">
-                <div class="border-b border-gray-200 pb-3">
-                    <h3 class="text-lg font-bold text-gray-900">
+                <div class="border-b border-slate-200 pb-4">
+                    <h3 class="text-lg font-bold text-slate-900">
                         Tambah Stok Barang Masuk (Restock)
                     </h3>
-                    <p class="mt-0.5 text-xs text-gray-500">
-                        {{ activeRestockItem.name }} ({{ activeRestockItem.sku }}) — Cabang:
-                        {{ selectedBranch?.name }}
+                    <p class="mt-0.5 text-xs text-slate-600">
+                        {{ activeRestockItem.name }} (<span class="kopdes-num">{{ activeRestockItem.sku }}</span>) &mdash; Cabang:
+                        <strong>{{ selectedBranch?.name }}</strong>
                     </p>
                 </div>
 
                 <div class="mt-4 space-y-4">
-                    <div class="grid grid-cols-3 gap-3 rounded-lg bg-gray-50 p-3 text-center text-xs ring-1 ring-gray-200">
+                    <div class="grid grid-cols-3 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-center text-xs">
                         <div>
-                            <div class="text-gray-500">Stok Fisik Saat Ini</div>
-                            <div class="mt-0.5 font-mono text-base font-bold text-gray-900">
+                            <div class="text-slate-500">Stok Fisik Saat Ini</div>
+                            <div class="kopdes-num mt-1 text-base font-bold text-slate-900">
                                 {{ activeRestockItem.quantity }} {{ activeRestockItem.unit }}
                             </div>
                         </div>
                         <div>
-                            <div class="text-gray-500">Ditahan Midtrans</div>
-                            <div class="mt-0.5 font-mono text-base font-bold text-amber-700">
+                            <div class="text-slate-500">Ditahan Midtrans</div>
+                            <div class="kopdes-num mt-1 text-base font-bold text-amber-700">
                                 {{ activeRestockItem.reserved_qty }} {{ activeRestockItem.unit }}
                             </div>
                         </div>
                         <div>
-                            <div class="text-gray-500">Stok Fisik Setelah Restock</div>
-                            <div class="mt-0.5 font-mono text-base font-extrabold text-green-700">
+                            <div class="text-slate-500">Stok Setelah Restock</div>
+                            <div class="kopdes-num mt-1 text-base font-extrabold text-emerald-700">
                                 {{ estimatedRestockQtyAfter }} {{ activeRestockItem.unit }}
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <InputLabel
-                            for="qty_add"
-                            :value="`Jumlah Tambah Stok (${activeRestockItem.unit}) *`"
-                        />
-                        <TextInput
+                        <label for="qty_add" class="block text-xs font-semibold text-slate-700">
+                            Jumlah Tambah Stok ({{ activeRestockItem.unit }}) <span class="text-rose-600">*</span>
+                        </label>
+                        <input
                             id="qty_add"
                             v-model="restockForm.qty_add"
                             type="number"
                             min="1"
                             step="1"
-                            class="mt-1 block w-full font-mono"
+                            class="kopdes-input kopdes-num mt-1 font-bold"
                             required
                         />
-                        <InputError class="mt-2" :message="restockForm.errors.qty_add" />
-                        <InputError class="mt-2" :message="restockForm.errors.product_id" />
+                        <InputError class="mt-1.5" :message="restockForm.errors.qty_add" />
+                        <InputError class="mt-1.5" :message="restockForm.errors.product_id" />
                     </div>
 
                     <div>
-                        <InputLabel
-                            for="restock_notes"
-                            value="Catatan / Nomor Faktur Penerimaan (Opsional)"
-                        />
+                        <label for="restock_notes" class="block text-xs font-semibold text-slate-700">
+                            Catatan / Nomor Faktur Penerimaan (Opsional)
+                        </label>
                         <textarea
                             id="restock_notes"
                             v-model="restockForm.notes"
                             rows="3"
-                            class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                            class="kopdes-input mt-1"
                             placeholder="Contoh: Kiriman Supplier Bulog Faktur #102"
                         ></textarea>
-                        <InputError class="mt-2" :message="restockForm.errors.notes" />
+                        <InputError class="mt-1.5" :message="restockForm.errors.notes" />
                     </div>
                 </div>
 
-                <div class="mt-6 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                <div class="mt-6 flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
                     <SecondaryButton type="button" @click="closeRestockModal">
                         Batal
                     </SecondaryButton>
                     <PrimaryButton
-                        class="bg-green-700 hover:bg-green-800"
-                        :class="{ 'opacity-25': restockForm.processing }"
+                        class="!bg-emerald-600 hover:!bg-emerald-700"
                         :disabled="restockForm.processing"
                     >
-                        Simpan Restock
+                        {{ restockForm.processing ? 'Menyimpan...' : 'Simpan Restock' }}
                     </PrimaryButton>
                 </div>
             </form>
@@ -575,40 +641,40 @@ const submitAdjust = () => {
         <!-- Modal Penyesuaian Stok (Stock Adjustment / Opname) -->
         <Modal :show="activeAdjustItem !== null" max-width="lg" @close="closeAdjustModal">
             <form v-if="activeAdjustItem" @submit.prevent="submitAdjust" class="p-6">
-                <div class="border-b border-gray-200 pb-3">
-                    <h3 class="text-lg font-bold text-gray-900">
-                        Penyesuaian Stok Fisik (Stock Adjustment)
+                <div class="border-b border-slate-200 pb-4">
+                    <h3 class="text-lg font-bold text-slate-900">
+                        Penyesuaian Stok Fisik (Stock Opname)
                     </h3>
-                    <p class="mt-0.5 text-xs text-gray-500">
-                        {{ activeAdjustItem.name }} ({{ activeAdjustItem.sku }}) — Cabang:
-                        {{ selectedBranch?.name }}
+                    <p class="mt-0.5 text-xs text-slate-600">
+                        {{ activeAdjustItem.name }} (<span class="kopdes-num">{{ activeAdjustItem.sku }}</span>) &mdash; Cabang:
+                        <strong>{{ selectedBranch?.name }}</strong>
                     </p>
                 </div>
 
                 <div class="mt-4 space-y-4">
-                    <div class="grid grid-cols-3 gap-3 rounded-lg bg-gray-50 p-3 text-center text-xs ring-1 ring-gray-200">
+                    <div class="grid grid-cols-3 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-center text-xs">
                         <div>
-                            <div class="text-gray-500">Stok Fisik Tercatat</div>
-                            <div class="mt-0.5 font-mono text-base font-bold text-gray-900">
+                            <div class="text-slate-500">Stok Fisik Tercatat</div>
+                            <div class="kopdes-num mt-1 text-base font-bold text-slate-900">
                                 {{ activeAdjustItem.quantity }} {{ activeAdjustItem.unit }}
                             </div>
                         </div>
                         <div>
-                            <div class="text-gray-500">Batas Bawah (`reserved_qty`)</div>
-                            <div class="mt-0.5 font-mono text-base font-bold text-amber-700">
+                            <div class="text-slate-500">Batas Bawah Reservasi</div>
+                            <div class="kopdes-num mt-1 text-base font-bold text-amber-700">
                                 {{ activeAdjustItem.reserved_qty }} {{ activeAdjustItem.unit }}
                             </div>
                         </div>
                         <div>
-                            <div class="text-gray-500">Selisih (`qty_change`)</div>
+                            <div class="text-slate-500">Selisih Perubahan</div>
                             <div
-                                class="mt-0.5 font-mono text-base font-extrabold"
+                                class="kopdes-num mt-1 text-base font-extrabold"
                                 :class="
                                     adjustDiff > 0
-                                        ? 'text-green-700'
+                                        ? 'text-emerald-700'
                                         : adjustDiff < 0
-                                          ? 'text-red-700'
-                                          : 'text-gray-700'
+                                          ? 'text-rose-700'
+                                          : 'text-slate-700'
                                 "
                             >
                                 {{ adjustDiff > 0 ? `+${adjustDiff}` : adjustDiff }}
@@ -619,69 +685,66 @@ const submitAdjust = () => {
 
                     <div
                         v-if="activeAdjustItem.reserved_qty > 0"
-                        class="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800"
+                        class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"
                     >
                         <strong>Info Reservasi Midtrans:</strong> Saat ini terdapat
-                        <strong>{{ activeAdjustItem.reserved_qty }} {{ activeAdjustItem.unit }}</strong>
-                        yang sedang ditahan transaksi Midtrans <code>pending</code>. Stok fisik aktual tidak boleh
-                        diatur lebih kecil dari <strong>{{ activeAdjustItem.reserved_qty }}</strong>.
+                        <strong class="kopdes-num">{{ activeAdjustItem.reserved_qty }} {{ activeAdjustItem.unit }}</strong>
+                        yang sedang ditahan transaksi Midtrans pending. Stok fisik aktual tidak boleh diatur lebih kecil dari
+                        <strong class="kopdes-num">{{ activeAdjustItem.reserved_qty }}</strong>.
                     </div>
 
                     <div>
-                        <InputLabel
-                            for="actual_quantity"
-                            :value="`Stok Fisik Aktual Hasil Opname (${activeAdjustItem.unit}) — Min: ${activeAdjustItem.reserved_qty} *`"
-                        />
-                        <TextInput
+                        <label for="actual_quantity" class="block text-xs font-semibold text-slate-700">
+                            Stok Fisik Aktual Hasil Opname ({{ activeAdjustItem.unit }}) &mdash; Min: {{ activeAdjustItem.reserved_qty }} <span class="text-rose-600">*</span>
+                        </label>
+                        <input
                             id="actual_quantity"
                             v-model="adjustForm.actual_quantity"
                             type="number"
                             :min="activeAdjustItem.reserved_qty"
                             step="1"
-                            class="mt-1 block w-full font-mono"
+                            class="kopdes-input kopdes-num mt-1 font-bold"
                             required
                         />
                         <p
                             v-if="isAdjustBelowReserved"
-                            class="mt-1.5 text-xs font-semibold text-red-600"
+                            class="mt-1.5 text-xs font-semibold text-rose-600"
                         >
                             Stok fisik aktual tidak boleh lebih kecil dari stok yang sedang ditahan transaksi Midtrans ({{ activeAdjustItem.reserved_qty }}).
                         </p>
-                        <InputError class="mt-2" :message="adjustForm.errors.actual_quantity" />
-                        <InputError class="mt-2" :message="adjustForm.errors.product_id" />
+                        <InputError class="mt-1.5" :message="adjustForm.errors.actual_quantity" />
+                        <InputError class="mt-1.5" :message="adjustForm.errors.product_id" />
                     </div>
 
                     <div>
-                        <InputLabel
-                            for="adjust_notes"
-                            value="Catatan Alasan Penyesuaian Stok (Wajib Diisi) *"
-                        />
+                        <label for="adjust_notes" class="block text-xs font-semibold text-slate-700">
+                            Catatan Alasan Penyesuaian Stok (Wajib Diisi) <span class="text-rose-600">*</span>
+                        </label>
                         <textarea
                             id="adjust_notes"
                             v-model="adjustForm.notes"
                             rows="3"
-                            class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500"
+                            class="kopdes-input mt-1"
                             placeholder="Contoh: Kemasan rusak 2 pcs saat stock opname mingguan"
                             required
                         ></textarea>
-                        <InputError class="mt-2" :message="adjustForm.errors.notes" />
+                        <InputError class="mt-1.5" :message="adjustForm.errors.notes" />
                     </div>
                 </div>
 
-                <div class="mt-6 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                <div class="mt-6 flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
                     <SecondaryButton type="button" @click="closeAdjustModal">
                         Batal
                     </SecondaryButton>
                     <PrimaryButton
-                        class="bg-red-700 hover:bg-red-800"
-                        :class="{ 'opacity-25': adjustForm.processing || isAdjustBelowReserved }"
                         :disabled="adjustForm.processing || isAdjustBelowReserved"
                     >
-                        Simpan Penyesuaian Stok
+                        {{ adjustForm.processing ? 'Menyimpan...' : 'Simpan Penyesuaian Stok' }}
                     </PrimaryButton>
                 </div>
             </form>
         </Modal>
+
         <ImportExcelModal
             :show="showImportModal"
             type="stocks"

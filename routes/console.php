@@ -11,3 +11,11 @@ Artisan::command('inspire', function () {
 Schedule::command('kopdes:reconcile-expired-transactions')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+
+if (config('kopdes.demo_mode')) {
+    Schedule::command('migrate:fresh --seed --seeder=DemoDataSeeder --force')
+        ->dailyAt('00:00')
+        ->timezone('Asia/Jakarta')
+        ->when(fn (): bool => (bool) config('kopdes.demo_mode'))
+        ->withoutOverlapping();
+}

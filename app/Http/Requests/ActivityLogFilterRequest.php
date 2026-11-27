@@ -2,8 +2,36 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
+
 class ActivityLogFilterRequest extends ReportFilterRequest
 {
+    public function authorize(): bool
+    {
+        if (! parent::authorize()) {
+            return false;
+        }
+
+        $actor = $this->user();
+        if (! $actor) {
+            return false;
+        }
+
+        // SEC-12: Tolak actor_id di luar scope wilayah/cabang pengguna dengan HTTP 403
+        if ($this->filled('actor_id')) {
+            $requestedActorId = (int) $this->input('actor_id');
+            $isWithinScope = User::forUser($actor)
+                ->whereKey($requestedActorId)
+                ->exists();
+
+            if (! $isWithinScope) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * @return array<string, mixed>
      */

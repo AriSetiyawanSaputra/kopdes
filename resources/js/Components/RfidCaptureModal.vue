@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { normalizeCardUid } from '@/Utils/normalizeCardUid';
 import { usePage } from '@inertiajs/vue3';
 
@@ -178,41 +179,42 @@ onBeforeUnmount(() => {
 <template>
     <Modal :show="show" max-width="md" @close="handleClose">
         <div class="p-6" @click="focusInput">
-            <div class="flex items-start justify-between">
+            <div class="flex items-start justify-between gap-3">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-900">
+                    <h3 class="text-lg font-extrabold text-slate-900">
                         {{ title }}
                     </h3>
-                    <p class="mt-1 text-xs text-gray-500">
+                    <p class="mt-1 text-xs text-slate-600">
                         {{ description }}
                     </p>
                 </div>
-                <span
-                    class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800"
-                >
-                    Mode RFID Aktif
-                </span>
+                <StatusBadge variant="kopdes" size="xs" dot pulse>
+                    RFID Aktif
+                </StatusBadge>
             </div>
 
-            <div class="mt-5 rounded-lg border-2 border-dashed border-red-300 bg-red-50/50 p-4 text-center">
-                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-700">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                        />
-                    </svg>
+            <div class="mt-5 rounded-2xl border-2 border-dashed border-kopdes-200 bg-kopdes-50/40 p-5 text-center">
+                <div class="relative mx-auto flex h-14 w-14 items-center justify-center">
+                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-kopdes-400 opacity-20"></span>
+                    <div class="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-kopdes-100 text-kopdes-700 ring-1 ring-inset ring-kopdes-200">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                            />
+                        </svg>
+                    </div>
                 </div>
 
-                <label for="rfid-capture-input" class="mt-2 block text-xs font-semibold text-gray-700">
+                <label for="rfid-capture-input" class="mt-3 block text-xs font-bold uppercase tracking-wider text-slate-700">
                     UID Kartu RFID / NFC (Otomatis Ternormalisasi)
                 </label>
 
@@ -225,24 +227,24 @@ onBeforeUnmount(() => {
                     :disabled="loading"
                     @input="onInputChange"
                     @keydown.enter.prevent="onEnterKey"
-                    class="mt-2 block w-full rounded-md border-gray-300 text-center font-mono text-base font-bold uppercase tracking-wider text-gray-900 shadow-sm focus:border-red-600 focus:ring-red-600"
+                    class="kopdes-input kopdes-num mt-2 text-center text-base font-extrabold uppercase tracking-wider"
                     placeholder="Tempelkan kartu ke reader..."
                 />
 
-                <div class="mt-2 text-xs text-gray-600">
+                <div class="mt-2.5 text-xs text-slate-600">
                     Hasil Normalisasi:
-                    <span class="font-mono font-bold text-gray-900">
+                    <span class="kopdes-num rounded bg-white px-2 py-0.5 font-bold text-slate-900 ring-1 ring-inset ring-slate-200">
                         {{ normalizedPreview || '-' }}
                     </span>
                 </div>
 
                 <!-- Tombol Simulasi Tap Kartu Baru (Hanya saat APP_DEMO_MODE=true) -->
-                <div v-if="isDemoMode" class="mt-3 border-t border-red-200/70 pt-3">
+                <div v-if="isDemoMode" class="mt-3.5 border-t border-kopdes-200/70 pt-3">
                     <button
                         type="button"
                         :disabled="loading"
                         @click.stop="simulateTapNewCard"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-200 disabled:opacity-50"
+                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-200 disabled:opacity-50"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -254,12 +256,13 @@ onBeforeUnmount(() => {
 
             <div
                 v-if="localError || errorMessage"
-                class="mt-3 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs font-medium text-red-700"
+                role="alert"
+                class="mt-3.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700"
             >
                 {{ localError || errorMessage }}
             </div>
 
-            <div class="mt-6 flex items-center justify-end gap-2">
+            <div class="mt-6 flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
                 <SecondaryButton
                     type="button"
                     :disabled="loading"
@@ -270,8 +273,6 @@ onBeforeUnmount(() => {
 
                 <PrimaryButton
                     type="button"
-                    class="bg-red-700 hover:bg-red-800"
-                    :class="{ 'opacity-25': loading || isDebouncing }"
                     :disabled="loading || isDebouncing || !normalizedPreview"
                     @click.stop="finalizeCapture"
                 >

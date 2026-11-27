@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
@@ -30,11 +31,17 @@ const printProof = () => {
         <template #header>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
                 <div>
-                    <h1 class="kopdes-num text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                        Bukti Retur {{ transactionReturn.return_number }}
-                    </h1>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="kopdes-num text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Bukti Retur {{ transactionReturn.return_number }}
+                        </h1>
+                        <StatusBadge :variant="transactionReturn.return_type === 'full' ? 'rose' : 'amber'" size="xs">
+                            {{ transactionReturn.return_type === 'full' ? 'Full Void' : 'Retur Parsial' }}
+                        </StatusBadge>
+                    </div>
                     <p class="mt-0.5 text-sm text-slate-600">
-                        Dokumen retur bersifat immutable (final) &bull; Invoice asal: {{ transactionReturn.transaction?.invoice_number }}
+                        Dokumen retur bersifat immutable (final) &bull; Invoice asal:
+                        <span class="kopdes-num font-semibold text-slate-800">{{ transactionReturn.transaction?.invoice_number }}</span>
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -81,7 +88,7 @@ const printProof = () => {
                     </div>
 
                     <!-- Metadata -->
-                    <dl class="mt-4 grid grid-cols-1 gap-3 rounded-lg bg-slate-50 p-4 text-xs sm:grid-cols-2">
+                    <dl class="mt-4 grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-4 text-xs sm:grid-cols-2">
                         <div>
                             <dt class="font-semibold text-slate-500">No. Invoice Asal</dt>
                             <dd class="kopdes-num mt-0.5 font-bold text-slate-900">{{ transactionReturn.transaction?.invoice_number }}</dd>
@@ -118,7 +125,7 @@ const printProof = () => {
                                     }}
                                 </template>
                                 <template v-else>
-                                    Transfer Manual (Ref: {{ transactionReturn.refund_reference }})
+                                    Transfer Manual (Ref: <span class="kopdes-num">{{ transactionReturn.refund_reference }}</span>)
                                 </template>
                             </dd>
                         </div>
@@ -133,27 +140,20 @@ const printProof = () => {
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
-                                    <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-600">Produk</th>
-                                    <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-600">Kondisi</th>
-                                    <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase text-slate-600">Qty</th>
-                                    <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-600">Harga Snapshot</th>
-                                    <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-600">Subtotal Refund</th>
+                                    <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Produk</th>
+                                    <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Kondisi</th>
+                                    <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Qty</th>
+                                    <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Harga Snapshot</th>
+                                    <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-600">Subtotal Refund</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-for="item in transactionReturn.items" :key="item.id">
                                     <td class="px-3 py-2.5 font-semibold text-slate-900">{{ item.product_name_snapshot }}</td>
                                     <td class="px-3 py-2.5 text-center">
-                                        <span
-                                            class="inline-flex rounded-full px-2 py-0.5 text-xs font-bold"
-                                            :class="
-                                                item.condition === 'restockable'
-                                                    ? 'bg-emerald-50 text-emerald-700'
-                                                    : 'bg-amber-50 text-amber-800'
-                                            "
-                                        >
+                                        <StatusBadge :variant="item.condition === 'restockable' ? 'emerald' : 'amber'" size="xs">
                                             {{ item.condition === 'restockable' ? 'Layak Jual (Restock)' : 'Rusak / Cacat' }}
-                                        </span>
+                                        </StatusBadge>
                                     </td>
                                     <td class="kopdes-num px-3 py-2.5 text-center font-bold">{{ item.qty_returned }}</td>
                                     <td class="kopdes-num px-3 py-2.5 text-right text-slate-700">{{ formatRupiah(item.unit_price_snapshot) }}</td>
@@ -175,13 +175,13 @@ const printProof = () => {
 
                     <!-- Ringkasan Dampak HPP & Tanda Tangan -->
                     <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
-                        <div class="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
                             <span class="font-semibold text-emerald-800">HPP Kembali ke Stok:</span>
                             <span class="kopdes-num ms-1 font-extrabold text-emerald-900">
                                 {{ formatRupiah(transactionReturn.total_restocked_cogs) }}
                             </span>
                         </div>
-                        <div class="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                        <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
                             <span class="font-semibold text-amber-800">HPP Barang Rusak (Tidak Restock):</span>
                             <span class="kopdes-num ms-1 font-extrabold text-amber-900">
                                 {{ formatRupiah(transactionReturn.total_damaged_cogs) }}

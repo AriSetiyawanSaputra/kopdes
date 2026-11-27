@@ -3,6 +3,8 @@ import { computed, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -110,9 +112,14 @@ const exportUrl = (format) => {
         <template #header>
             <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                        Laporan Penjualan &amp; Laba Rugi
-                    </h1>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                            Laporan Penjualan &amp; Laba Rugi
+                        </h1>
+                        <StatusBadge variant="emerald" dot>
+                            Lunas (Paid)
+                        </StatusBadge>
+                    </div>
                     <p class="mt-0.5 text-sm text-slate-600">
                         Omzet transaksi lunas (paid) &rarr; HPP Snapshot &rarr; Laba Kotor &rarr; Biaya Operasional &rarr; Laba Bersih
                     </p>
@@ -286,66 +293,66 @@ const exportUrl = (format) => {
                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-slate-700"></div>
-                        <div class="text-xs font-semibold text-slate-500">Omzet Bruto (Paid)</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-slate-900">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Omzet Bruto (Paid)</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-extrabold text-slate-900">
                             {{ formatRupiah(summary.gross_revenue ?? summary.total_revenue) }}
                         </div>
-                        <div class="mt-0.5 text-[11px] text-slate-500">
-                            {{ formatNumber(summary.total_transactions) }} transaksi paid
+                        <div class="mt-1 text-[11px] text-slate-500">
+                            <span class="kopdes-num font-semibold text-slate-700">{{ formatNumber(summary.total_transactions) }}</span> transaksi paid
                         </div>
                     </div>
 
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-rose-500"></div>
-                        <div class="text-xs font-semibold text-slate-500">Total Retur &amp; Void</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-rose-700">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Retur &amp; Void</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-extrabold text-rose-700">
                             {{ formatRupiah(summary.total_returns) }}
                         </div>
-                        <div class="mt-0.5 text-[11px] text-amber-700">
-                            Rusak: {{ formatRupiah(summary.damaged_cogs) }}
+                        <div class="mt-1 text-[11px] text-amber-700">
+                            Rusak: <span class="kopdes-num font-semibold">{{ formatRupiah(summary.damaged_cogs) }}</span>
                         </div>
                     </div>
 
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-kopdes-700"></div>
-                        <div class="text-xs font-semibold text-slate-500">Omzet Bersih</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-slate-900">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Omzet Bersih</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-extrabold text-slate-900">
                             {{ formatRupiah(summary.net_revenue ?? summary.total_revenue) }}
                         </div>
-                        <div class="mt-0.5 text-[11px] text-blue-700">
-                            Hemat Member: {{ formatRupiah(summary.total_member_discount) }}
+                        <div class="mt-1 text-[11px] text-indigo-700">
+                            Hemat Member: <span class="kopdes-num font-semibold">{{ formatRupiah(summary.total_member_discount) }}</span>
                         </div>
                     </div>
 
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-slate-500"></div>
-                        <div class="text-xs font-semibold text-slate-500">HPP Bersih</div>
-                        <div class="kopdes-num mt-1 text-lg font-bold text-slate-700">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">HPP Bersih</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-bold text-slate-700">
                             {{ formatRupiah(summary.net_cogs ?? summary.total_cogs) }}
                         </div>
-                        <div class="mt-0.5 text-[11px] text-slate-500">
-                            Restock: {{ formatRupiah(summary.restocked_cogs) }}
+                        <div class="mt-1 text-[11px] text-slate-500">
+                            Restock: <span class="kopdes-num font-semibold">{{ formatRupiah(summary.restocked_cogs) }}</span>
                         </div>
                     </div>
 
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-emerald-600"></div>
-                        <div class="text-xs font-semibold text-slate-500">Laba Kotor</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-emerald-700">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Laba Kotor</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-extrabold text-emerald-700">
                             {{ formatRupiah(summary.gross_profit) }}
                         </div>
-                        <div class="kopdes-num mt-0.5 text-[11px] font-semibold text-amber-700">
+                        <div class="kopdes-num mt-1 text-[11px] font-semibold text-amber-700">
                             Margin {{ Number(summary.gross_margin_percent || 0).toFixed(2) }}%
                         </div>
                     </div>
 
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-rose-600"></div>
-                        <div class="text-xs font-semibold text-slate-500">Biaya Operasional</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-rose-700">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Biaya Operasional</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-extrabold text-rose-700">
                             {{ formatRupiah(summary.total_operational_expenses) }}
                         </div>
-                        <div class="mt-0.5 text-[11px] text-slate-500">
+                        <div class="mt-1 text-[11px] text-slate-500">
                             Beban cabang periode
                         </div>
                     </div>
@@ -353,27 +360,27 @@ const exportUrl = (format) => {
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div
                             class="absolute inset-x-0 top-0 h-1"
-                            :class="netProfit >= 0 ? 'bg-blue-600' : 'bg-rose-600'"
+                            :class="netProfit >= 0 ? 'bg-indigo-600' : 'bg-rose-600'"
                         ></div>
-                        <div class="text-xs font-semibold text-slate-500">Laba Bersih (Dasar SHU)</div>
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Laba Bersih (SHU)</div>
                         <div
-                            class="kopdes-num mt-1 text-lg font-extrabold"
+                            class="kopdes-num mt-1.5 text-lg font-extrabold"
                             :class="netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'"
                         >
                             {{ formatRupiah(netProfit) }}
                         </div>
-                        <div class="mt-0.5 text-[11px] text-slate-500">
+                        <div class="mt-1 text-[11px] text-slate-500">
                             Laba Kotor &minus; Biaya Ops
                         </div>
                     </div>
 
                     <div class="kopdes-card relative overflow-hidden p-4">
                         <div class="absolute inset-x-0 top-0 h-1 bg-amber-500"></div>
-                        <div class="text-xs font-semibold text-slate-500">Margin Bersih</div>
-                        <div class="kopdes-num mt-1 text-lg font-extrabold text-amber-700">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Margin Bersih</div>
+                        <div class="kopdes-num mt-1.5 text-lg font-extrabold text-amber-700">
                             {{ Number(summary.net_margin_percentage || 0).toFixed(2) }}%
                         </div>
-                        <div class="mt-0.5 text-[11px] text-slate-500">
+                        <div class="mt-1 text-[11px] text-slate-500">
                             Laba Bersih / Omzet Bersih
                         </div>
                     </div>
@@ -381,12 +388,15 @@ const exportUrl = (format) => {
 
                 <!-- Tabel 1: Agregasi Laba Rugi Per Cabang -->
                 <div class="kopdes-card overflow-hidden">
-                    <div class="border-b border-slate-200 px-5 py-3.5">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
                         <h2 class="text-sm font-bold text-slate-900">
                             1. Agregasi Laba Rugi per Cabang KOPDES
                         </h2>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ branchSummaries.length }} Cabang</span>
+                        </StatusBadge>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div v-if="branchSummaries.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -442,28 +452,33 @@ const exportUrl = (format) => {
                                     >
                                         {{ formatRupiah(row.net_profit) }}
                                     </td>
-                                    <td class="kopdes-num whitespace-nowrap px-4 py-3 text-center text-xs font-bold text-amber-700">
-                                        {{ Number(row.net_margin_percentage || 0).toFixed(2) }}%
-                                    </td>
-                                </tr>
-                                <tr v-if="branchSummaries.length === 0">
-                                    <td colspan="10" class="px-4 py-6 text-center text-sm text-slate-500">
-                                        Tidak ada data cabang pada filter wilayah ini.
+                                    <td class="whitespace-nowrap px-4 py-3 text-center">
+                                        <StatusBadge :variant="Number(row.net_profit || 0) >= 0 ? 'amber' : 'rose'" size="xs">
+                                            <span class="kopdes-num">{{ Number(row.net_margin_percentage || 0).toFixed(2) }}%</span>
+                                        </StatusBadge>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <EmptyState
+                        v-else
+                        title="Tidak ada data cabang"
+                        description="Belum ada data cabang KOPDES pada filter wilayah dan periode ini."
+                    />
                 </div>
 
                 <!-- Tabel 2: Daftar Rincian Transaksi Paid Berbasis Snapshot HPP -->
                 <div class="kopdes-card overflow-hidden">
-                    <div class="border-b border-slate-200 px-5 py-3.5">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
                         <h2 class="text-sm font-bold text-slate-900">
                             2. Daftar Rincian Transaksi Lunas (Paid) Berbasis Snapshot HPP
                         </h2>
+                        <StatusBadge variant="slate" size="xs">
+                            <span class="kopdes-num">{{ formatNumber(transactions.length) }} Transaksi</span>
+                        </StatusBadge>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div v-if="transactions.length > 0" class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
@@ -493,20 +508,14 @@ const exportUrl = (format) => {
                                             <span class="kopdes-num text-xs font-bold text-slate-900">
                                                 {{ tx.invoice_number }}
                                             </span>
-                                            <span
-                                                v-if="tx.return_status === 'partial'"
-                                                class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
-                                            >
+                                            <StatusBadge v-if="tx.return_status === 'partial'" variant="amber" size="xs">
                                                 Retur Parsial
-                                            </span>
-                                            <span
-                                                v-else-if="tx.return_status === 'full'"
-                                                class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-800"
-                                            >
+                                            </StatusBadge>
+                                            <StatusBadge v-else-if="tx.return_status === 'full'" variant="rose" size="xs">
                                                 Full Void
-                                            </span>
+                                            </StatusBadge>
                                         </div>
-                                        <div class="kopdes-num text-xs text-slate-500">
+                                        <div class="kopdes-num mt-0.5 text-xs text-slate-500">
                                             {{ tx.paid_at }}
                                         </div>
                                     </td>
@@ -518,22 +527,15 @@ const exportUrl = (format) => {
                                         <template v-if="tx.member">
                                             <div class="font-semibold text-slate-900">{{ tx.member.name }}</div>
                                             <div class="text-xs text-slate-500">
-                                                {{ tx.member.member_code }} — {{ tx.member.home_branch_name || '' }}
+                                                <span class="kopdes-num">{{ tx.member.member_code }}</span> — {{ tx.member.home_branch_name || '' }}
                                             </div>
                                         </template>
                                         <span v-else class="text-xs text-slate-500">Pembeli Umum</span>
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-center">
-                                        <span
-                                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
-                                            :class="
-                                                tx.payment_method === 'cash'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : 'bg-blue-100 text-blue-800'
-                                            "
-                                        >
-                                            {{ tx.payment_method }}
-                                        </span>
+                                        <StatusBadge :variant="tx.payment_method === 'cash' ? 'emerald' : 'indigo'" size="xs">
+                                            {{ tx.payment_method === 'cash' ? 'Tunai' : 'Midtrans' }}
+                                        </StatusBadge>
                                     </td>
                                     <td class="kopdes-num whitespace-nowrap px-4 py-3 text-right font-bold text-slate-900">
                                         {{ formatRupiah(tx.total_amount) }}
@@ -551,21 +553,23 @@ const exportUrl = (format) => {
                                         <Link
                                             v-if="tx.return_status !== 'full'"
                                             :href="route('returns.create', tx.id)"
-                                            class="inline-flex cursor-pointer items-center rounded-md border border-kopdes-200 bg-kopdes-50 px-2.5 py-1 text-xs font-semibold text-kopdes-700 transition-colors hover:bg-kopdes-100"
+                                            class="inline-flex cursor-pointer items-center rounded-lg border border-kopdes-200 bg-kopdes-50 px-2.5 py-1 text-xs font-semibold text-kopdes-700 transition-colors hover:bg-kopdes-100"
                                         >
                                             Proses Retur / Void
                                         </Link>
-                                        <span v-else class="text-xs text-slate-400">Selesai Diretur</span>
-                                    </td>
-                                </tr>
-                                <tr v-if="transactions.length === 0">
-                                    <td :colspan="permissions.can_process_return ? 8 : 7" class="px-4 py-8 text-center text-sm text-slate-500">
-                                        Belum ada transaksi berstatus lunas (paid) pada periode dan filter ini.
+                                        <StatusBadge v-else variant="slate" size="xs">
+                                            Selesai Diretur
+                                        </StatusBadge>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <EmptyState
+                        v-else
+                        title="Belum ada transaksi lunas"
+                        description="Belum ada transaksi berstatus paid pada rentang tanggal dan filter wilayah yang dipilih."
+                    />
                 </div>
             </div>
         </div>

@@ -82,8 +82,8 @@ class MemberPortalService
             ->where('payment_status', 'paid')
             ->whereBetween('paid_at', [$startAt, $endAt])
             ->selectRaw('COUNT(*) as paid_transactions_count')
-            ->selectRaw("COALESCE(SUM(CASE WHEN branch_id = COALESCE(member_home_branch_id, {$homeBranchId}) THEN total_amount ELSE 0 END), 0) as gross_home_spending")
-            ->selectRaw("COALESCE(SUM(CASE WHEN branch_id <> COALESCE(member_home_branch_id, {$homeBranchId}) THEN total_amount ELSE 0 END), 0) as gross_cross_spending")
+            ->selectRaw('COALESCE(SUM(CASE WHEN branch_id = COALESCE(member_home_branch_id, ?) THEN total_amount ELSE 0 END), 0) as gross_home_spending', [$homeBranchId])
+            ->selectRaw('COALESCE(SUM(CASE WHEN branch_id <> COALESCE(member_home_branch_id, ?) THEN total_amount ELSE 0 END), 0) as gross_cross_spending', [$homeBranchId])
             ->selectRaw('COALESCE(SUM(total_amount), 0) as gross_spending_total')
             ->selectRaw('COALESCE(SUM(member_discount_total), 0) as gross_member_discount')
             ->first();
@@ -94,8 +94,8 @@ class MemberPortalService
             ->where('status', TransactionReturn::STATUS_COMPLETED)
             ->whereBetween('returned_at', [$startAt, $endAt])
             ->selectRaw('COUNT(*) as returns_count')
-            ->selectRaw("COALESCE(SUM(CASE WHEN branch_id = COALESCE(member_home_branch_id, {$homeBranchId}) THEN total_refund_amount ELSE 0 END), 0) as home_return_amount")
-            ->selectRaw("COALESCE(SUM(CASE WHEN branch_id <> COALESCE(member_home_branch_id, {$homeBranchId}) THEN total_refund_amount ELSE 0 END), 0) as cross_return_amount")
+            ->selectRaw('COALESCE(SUM(CASE WHEN branch_id = COALESCE(member_home_branch_id, ?) THEN total_refund_amount ELSE 0 END), 0) as home_return_amount', [$homeBranchId])
+            ->selectRaw('COALESCE(SUM(CASE WHEN branch_id <> COALESCE(member_home_branch_id, ?) THEN total_refund_amount ELSE 0 END), 0) as cross_return_amount', [$homeBranchId])
             ->selectRaw('COALESCE(SUM(total_refund_amount), 0) as total_return_amount')
             ->first();
 

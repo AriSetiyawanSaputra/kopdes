@@ -1,173 +1,246 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
+import { Link, usePage } from '@inertiajs/vue3';
+
+defineProps({
+    maxWidth: {
+        type: String,
+        default: 'md',
+        validator: (val) => ['md', 'lg'].includes(val),
+    },
+});
+
+const page = usePage();
+const appSettings = computed(() => page.props.app_settings ?? {});
+const isDemoMode = computed(() => Boolean(page.props.app?.demo_mode));
+const institutionName = computed(
+    () => appSettings.value?.institution_name || 'Koperasi Desa Merah Putih',
+);
 </script>
 
 <template>
     <div class="min-h-screen bg-slate-50 text-slate-900 lg:grid lg:grid-cols-12">
-        <!-- Left Brand Panel (Desktop Executive Showcase) -->
-        <aside class="relative hidden flex-col justify-between overflow-hidden bg-slate-900 px-10 py-10 text-white lg:col-span-5 lg:flex xl:col-span-6 xl:px-14">
-            <!-- Subtle Crimson & Slate Geometric Backdrop -->
+        <!-- Left Brand Panel (Modern Cooperative FinTech & Retail Showcase) -->
+        <aside class="relative hidden flex-col justify-between overflow-hidden bg-slate-950 px-10 py-10 text-white lg:col-span-5 lg:flex xl:col-span-6 xl:px-14">
+            <!-- Refined Crimson & Slate Ambient Glow -->
             <div
-                class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(185,28,28,0.42),transparent_55%),radial-gradient(circle_at_bottom_left,rgba(153,27,27,0.28),transparent_50%)]"
+                class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(185,28,28,0.34),transparent_56%),radial-gradient(ellipse_at_bottom_left,rgba(153,27,27,0.22),transparent_52%)]"
                 aria-hidden="true"
             ></div>
             <div
-                class="pointer-events-none absolute inset-0 opacity-[0.07]"
-                style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 24px 24px;"
+                class="pointer-events-none absolute inset-0 opacity-[0.06]"
+                style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 26px 26px;"
                 aria-hidden="true"
             ></div>
 
-            <!-- Brand Identity -->
-            <div class="relative z-10 flex items-center gap-3.5">
+            <!-- Brand Identity Header -->
+            <div class="relative z-10 flex items-center justify-between gap-4">
                 <Link
                     href="/login"
-                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-kopdes-700 shadow-lg ring-1 ring-white/20"
+                    class="flex cursor-pointer items-center gap-3.5 focus:outline-none"
                 >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        class="h-6 w-6 text-white"
-                        aria-hidden="true"
+                    <div
+                        class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-lg ring-1 ring-white/20"
+                        :class="appSettings.institution_logo_url ? 'bg-white p-1' : 'bg-gradient-to-br from-kopdes-600 to-kopdes-800'"
                     >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 3L4 7v6c0 4.418 3.582 8 8 8s8-3.582 8-8V7l-8-4z"
+                        <img
+                            v-if="appSettings.institution_logo_url"
+                            :src="appSettings.institution_logo_url"
+                            :alt="institutionName"
+                            class="h-full w-full object-contain"
                         />
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M9 12l2 2 4-4"
-                        />
-                    </svg>
+                        <svg
+                            v-else
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            class="h-6 w-6 text-white"
+                            aria-hidden="true"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3L4 7v6c0 4.418 3.582 8 8 8s8-3.582 8-8V7l-8-4z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                        </svg>
+                    </div>
+                    <div class="leading-tight">
+                        <span class="block text-base font-extrabold tracking-tight text-white">
+                            KOPDES MERAH PUTIH
+                        </span>
+                        <span class="block text-xs font-medium text-slate-300">
+                            Modern Cooperative FinTech &amp; Retail
+                        </span>
+                    </div>
                 </Link>
-                <div>
-                    <span class="block text-lg font-extrabold tracking-tight text-white">
-                        KOPDES MERAH PUTIH
-                    </span>
-                    <span class="block text-xs font-medium text-kopdes-200">
-                        Sistem Kasir &amp; Manajemen Keuangan Terpusat
-                    </span>
-                </div>
+
+                <StatusBadge
+                    v-if="isDemoMode"
+                    variant="amber"
+                    size="xs"
+                    dot
+                    pulse
+                >
+                    Mode Demo
+                </StatusBadge>
             </div>
 
-            <!-- Center Value Proposition & Trust Pillars -->
-            <div class="relative z-10 my-auto max-w-lg py-10">
-                <span class="inline-flex items-center gap-2 rounded-full border border-kopdes-500/40 bg-kopdes-900/60 px-3 py-1 text-xs font-semibold text-kopdes-100">
-                    <span class="h-1.5 w-1.5 rounded-full bg-kopdes-400"></span>
-                    Platform Koperasi Desa Nasional
-                </span>
+            <!-- Center Hero Typography + Ecosystem Highlights -->
+            <div class="relative z-10 my-auto max-w-lg py-8">
+                <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 backdrop-blur-sm">
+                    <span class="h-1.5 w-1.5 rounded-full bg-kopdes-500"></span>
+                    <span>Ekosistem Digital 1 Desa = 1 KOPDES</span>
+                </div>
 
-                <h2 class="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-white xl:text-4xl">
-                    Kelola Keuangan &amp; Operasional KOPDES Secara Transparan
+                <h2 class="mt-4 text-3xl font-extrabold leading-[1.18] tracking-tight text-white xl:text-[34px]">
+                    Transparansi Keuangan &amp; Kasir Ritel Koperasi Desa
                 </h2>
 
                 <p class="mt-3 text-sm leading-relaxed text-slate-300">
-                    Terintegrasi dari tingkat Desa hingga Nasional dengan kendali stok real-time,
-                    pembayaran Tunai &amp; Midtrans Snap, serta laporan laba kotor berbasis snapshot HPP.
+                    Menghubungkan gerai POS desa, kontrol stok anti-minus, pembayaran Tunai &amp;
+                    Midtrans Snap, hingga pelaporan Laba Bersih &amp; SHU anggota secara real-time.
                 </p>
 
-                <!-- 3 Pillars -->
-                <div class="mt-8 space-y-3.5">
-                    <div class="flex items-start gap-3.5 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kopdes-700/90 text-white">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <!-- Mini Executive Metrics Strip -->
+                <div class="mt-6 grid grid-cols-3 gap-2.5">
+                    <div class="rounded-xl border border-white/10 bg-white/[0.04] p-3 backdrop-blur-sm">
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            Hierarki
+                        </div>
+                        <div class="kopdes-num mt-1 text-sm font-extrabold text-white">
+                            4 Level
+                        </div>
+                        <div class="mt-0.5 text-[10px] text-slate-400">
+                            Nasional → Desa
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-white/10 bg-white/[0.04] p-3 backdrop-blur-sm">
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            Akuntansi
+                        </div>
+                        <div class="kopdes-num mt-1 text-sm font-extrabold text-emerald-400">
+                            HPP Snapshot
+                        </div>
+                        <div class="mt-0.5 text-[10px] text-slate-400">
+                            Laba &amp; SHU Akurat
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-white/10 bg-white/[0.04] p-3 backdrop-blur-sm">
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            Akses POS
+                        </div>
+                        <div class="kopdes-num mt-1 text-sm font-extrabold text-indigo-300">
+                            RFID + PIN
+                        </div>
+                        <div class="mt-0.5 text-[10px] text-slate-400">
+                            Kartu Member Portable
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3 Trust Pillars -->
+                <div class="mt-6 space-y-3">
+                    <div class="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-kopdes-700/90 text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m4 6V7m4 10v-3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold text-white">
-                                Pelaporan Keuangan Berjenjang &amp; Akurat
+                            <h3 class="text-xs font-bold text-white">
+                                Laporan Keuangan &amp; Drill-Down Wilayah
                             </h3>
-                            <p class="mt-0.5 text-xs text-slate-300">
-                                Drill-down Nasional, Provinsi, Kabupaten, hingga Cabang Desa dengan proteksi RBAC ketat.
+                            <p class="mt-0.5 text-[11px] leading-relaxed text-slate-300">
+                                Omzet bersih pasca-retur, HPP snapshot, biaya operasional, hingga ekspor Excel &amp; PDF resmi.
                             </p>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-3.5 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600/90 text-white">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <div class="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600/90 text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold text-white">
-                                Snapshot HPP &amp; Fondasi Data SHU Anggota
+                            <h3 class="text-xs font-bold text-white">
+                                Kontrol Shift Kasir &amp; Audit Trail Immutable
                             </h3>
-                            <p class="mt-0.5 text-xs text-slate-300">
-                                Perubahan harga produk tidak memengaruhi laba kotor historis dan rekap belanja anggota.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3.5 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600/90 text-white">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-bold text-white">
-                                Kartu RFID Kasir &amp; Portabilitas Member
-                            </h3>
-                            <p class="mt-0.5 text-xs text-slate-300">
-                                Autentikasi cepat RFID + PIN 6 digit bagi kasir serta kartu anggota lintas cabang KOPDES.
+                            <p class="mt-0.5 text-[11px] leading-relaxed text-slate-300">
+                                Tutup shift blind-count, kunci layar cepat F12, serta rekam jejak aktivitas admin yang tersensor.
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Bottom Legal / Status -->
+            <!-- Bottom Legal -->
             <div class="relative z-10 flex items-center justify-between border-t border-white/10 pt-5 text-xs text-slate-400">
-                <span>&copy; {{ new Date().getFullYear() }} KOPDES Merah Putih</span>
-                <span class="font-mono text-[11px] text-slate-300">1 Desa = 1 KOPDES</span>
+                <span>&copy; {{ new Date().getFullYear() }} {{ institutionName }}</span>
+                <span class="kopdes-num text-[11px] text-slate-300">KOPDES v3 &bull; Aman &amp; Terintegrasi</span>
             </div>
         </aside>
 
         <!-- Right Authentication Workspace -->
-        <main class="flex min-h-screen flex-col justify-between px-4 py-8 sm:px-8 lg:col-span-7 lg:px-12 xl:col-span-6">
+        <main class="flex min-h-screen flex-col justify-between px-4 py-6 sm:px-8 lg:col-span-7 lg:px-12 xl:col-span-6">
             <!-- Mobile Brand Header -->
-            <div class="mx-auto mb-6 flex w-full max-w-md items-center gap-3 lg:hidden">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-kopdes-700 shadow-sm">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        class="h-5 w-5 text-white"
-                        aria-hidden="true"
+            <div class="mx-auto mb-5 flex w-full max-w-md items-center justify-between gap-3 lg:hidden">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm"
+                        :class="appSettings.institution_logo_url ? 'border border-slate-200 bg-white p-1' : 'bg-gradient-to-br from-kopdes-600 to-kopdes-800'"
                     >
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3L4 7v6c0 4.418 3.582 8 8 8s8-3.582 8-8V7l-8-4z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                    </svg>
+                        <img
+                            v-if="appSettings.institution_logo_url"
+                            :src="appSettings.institution_logo_url"
+                            :alt="institutionName"
+                            class="h-full w-full object-contain"
+                        />
+                        <svg
+                            v-else
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            class="h-5 w-5 text-white"
+                            aria-hidden="true"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3L4 7v6c0 4.418 3.582 8 8 8s8-3.582 8-8V7l-8-4z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                        </svg>
+                    </div>
+                    <div class="leading-tight">
+                        <span class="block text-sm font-extrabold tracking-tight text-slate-900">
+                            KOPDES Merah Putih
+                        </span>
+                        <span class="block text-[11px] font-medium text-slate-500">
+                            Sistem Kasir &amp; Manajemen Keuangan
+                        </span>
+                    </div>
                 </div>
-                <div class="leading-tight">
-                    <span class="block text-base font-extrabold tracking-tight text-slate-900">
-                        KOPDES Merah Putih
-                    </span>
-                    <span class="block text-xs font-medium text-slate-600">
-                        Sistem Kasir &amp; Manajemen Keuangan
-                    </span>
-                </div>
+                <StatusBadge v-if="isDemoMode" variant="amber" size="xs" dot pulse>
+                    Demo
+                </StatusBadge>
             </div>
 
             <!-- Centered Card Container -->
-            <div class="mx-auto my-auto w-full max-w-md">
+            <div
+                class="mx-auto my-auto w-full"
+                :class="maxWidth === 'lg' ? 'max-w-lg' : 'max-w-md'"
+            >
                 <div class="kopdes-card relative overflow-hidden p-6 sm:p-8">
-                    <div class="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-kopdes-800 via-kopdes-700 to-kopdes-600"></div>
+                    <div
+                        class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-kopdes-800 via-kopdes-600 to-kopdes-700"
+                        aria-hidden="true"
+                    ></div>
                     <slot />
                 </div>
             </div>
 
-            <!-- Mobile / Workspace Footer -->
+            <!-- Workspace Footer -->
             <p class="mt-6 text-center text-xs text-slate-500">
-                Akses sistem terenkripsi &bull; Koperasi Desa Merah Putih
+                Koneksi terenkripsi &bull; {{ institutionName }}
             </p>
         </main>
     </div>
